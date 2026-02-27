@@ -15,6 +15,12 @@ Download a file from NovaDB by its file identifier and save it to disk. Returns 
 
 **For uploading files** → use `upload-file`
 
+## When to Use
+
+- An object contains a **BinRef** attribute → read Attr 11000 (identifier) + 11005 (extension), call `get-file`.
+- Search results or fetched objects reference **binary objects** → read the referenced object, extract Attr 11000 + 11005, call `get-file`.
+- A file is referenced in **generated output** (HTML, Markdown, report) → set `targetPath` relative to the output file (e.g. same folder).
+
 ## Tools
 
 1. `novadb_cms_get_file` — Download the file and save to disk
@@ -55,3 +61,4 @@ JSON metadata object:
 - Always provide a `targetPath` to control where the file is saved
 - Parent directories are created automatically if they don't exist
 - To find the file identifier on an existing binary object: read attributes 11000 (identifier hash) and 11005 (extension), then use `<attr11000><attr11005>` as the name (e.g. `5fe618811cca585a2826a2da06e3ce1b.jpg`)
+- When generating HTML or documents that reference images/files: download **every** referenced file via `get-file` and set `targetPath` relative to the output folder

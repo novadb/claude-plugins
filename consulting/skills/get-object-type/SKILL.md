@@ -90,5 +90,9 @@ Attribute definitions are NOT directly linked to object types. Follow: Type → 
 ### ObjRef Resolution
 ObjRef values are numeric IDs. Resolve them to display names using `novadb_cms_get_objects` with `inherited: true`.
 
+### BinRef Attributes
+
+Attributes with data type `BinRef` point to binary objects. To download the file → use `get-file` skill.
+
 ### API Response (GET)
 Returns a `CmsObject` with `meta` and `values` array.

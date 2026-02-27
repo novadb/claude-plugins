@@ -235,6 +235,10 @@ When search results contain objects with ObjRef attributes you need to display:
 }
 ```
 
+### Binary References (BinRef)
+
+If an object contains BinRef attributes (images, documents), read Attr **11000** (identifier) and **11005** (extension) from the referenced binary object. To download → `get-file` with `name` = `<attr11000><attr11005>`.
+
 ---
 
 ## Application Area Discovery
