@@ -1,7 +1,7 @@
 {
-  "name": "novadb",
+  "name": "novadb-consulting",
   "description": "Skills and agents for NovaDB Consultant working together with the NovaDB MCP Server",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": {
     "name": "Noxum"
   }
