@@ -228,7 +228,7 @@ When search results contain objects with ObjRef attributes you need to display:
 
 ```json
 {
-  "branch": "<branch or 'draft'>",
+  "branch": "<branchId>",
   "ids": "2100500,2100501",
   "attributes": "1000",
   "inherited": true

@@ -31,13 +31,21 @@ Create an attribute definition (typeRef=10) in NovaDB. Supports all data types, 
 
 Call `novadb_cms_create_objects` with:
 
-- `branch` — Branch ID or `"draft"`
-- `objects` — Array with one object: `{ meta: { typeRef: 10, apiIdentifier: "..." }, values: [...] }`
+- `branch` — Numeric branch ID (int32). Always use the branch the user is currently working on.
+- `objects` — Array with one object: `{ meta: { typeRef: 10 }, values: [...] }`
 - `comment` / `username` — (optional) Audit trail
 
 ### Attribute Property IDs
 
-Only include values for fields you want to set. Name (EN) and data type are always required.
+Only include values for fields that are explicitly needed. Name (EN) and data type are always required. Apply the **principle of minimal configuration** — do not set properties unless the user requests them or the business case clearly requires them.
+
+### Decision Guidelines
+
+- **`apiIdentifier`** (meta field): Only set when explicitly requested. Must be unique across all branches and attributes.
+- **Language dependent (1017)**: Always question whether language-dependence is appropriate for the business case. Only set to `true` when the attribute genuinely holds translatable content.
+- **Inheritance (1013)**: Default is `"None"`. Only set when explicitly requested.
+- **Allow multiple (1004)**: Default is `false`. Verify case-by-case before enabling.
+- **All other boolean/optional fields**: Only set when explicitly necessary. Do not speculatively enable features.
 
 | Field | Attr ID | Type | Language | Notes |
 |-------|---------|------|----------|-------|
@@ -46,7 +54,7 @@ Only include values for fields you want to set. Name (EN) and data type are alwa
 | Description (EN) | 1012 | TextRef | 201 | |
 | Description (DE) | 1012 | TextRef | 202 | |
 | Data type | 1001 | String.DataType | 0 | **Required** — see enum below |
-| Language dependent | 1017 | Boolean | 0 | **Required** |
+| Language dependent | 1017 | Boolean | 0 | Only set when appropriate |
 | Required | 1018 | Boolean | 0 | |
 | Allow multiple | 1004 | Boolean | 0 | |
 | Predefined values | 1006 | Boolean | 0 | |
@@ -85,17 +93,14 @@ String.DataType, String.InheritanceBehavior, String.UserName, String.RGBColor
 
 ```json
 {
-  "branch": "draft",
+  "branch": "<branchId>",
   "objects": [
     {
-      "meta": { "typeRef": 10, "apiIdentifier": "my-attr" },
+      "meta": { "typeRef": 10 },
       "values": [
         { "attribute": 1000, "language": 201, "variant": 0, "value": "Industry" },
         { "attribute": 1000, "language": 202, "variant": 0, "value": "Branche" },
-        { "attribute": 1001, "language": 0, "variant": 0, "value": "String" },
-        { "attribute": 1017, "language": 0, "variant": 0, "value": false },
-        { "attribute": 1018, "language": 0, "variant": 0, "value": true },
-        { "attribute": 1004, "language": 0, "variant": 0, "value": false }
+        { "attribute": 1001, "language": 0, "variant": 0, "value": "String" }
       ]
     }
   ],
@@ -123,7 +128,7 @@ The POST response returns `{ transaction, createdObjectIds: [id] }`. Use the fir
 
 ```json
 {
-  "branch": "draft",
+  "branch": "<branchId>",
   "objectId": "<createdObjectIds[0]>",
   "inherited": true
 }
@@ -135,7 +140,6 @@ Return the fetched `CmsObject` to the user.
 
 - Name in English (attribute 1000, language 201)
 - Data type (attribute 1001)
-- Language dependent flag (attribute 1017)
 
 ## Common Patterns
 

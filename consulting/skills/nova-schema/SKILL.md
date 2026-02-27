@@ -478,10 +478,10 @@ Confirm the object is deleted.
 
 ## Branch Parameter
 
-- **CMS API:** Accepts branch ID or `"draft"`.
-- **Index API:** Requires a **numeric branch ID string** (e.g. `"2100347"`). Never use `"draft"` or `"branchDefault"`.
+- **CMS API:** Requires a **numeric branch ID** (int32).
+- **Index API:** Requires a **numeric branch ID string** (e.g. `"2100347"`). Never use `"branchDefault"`.
 
-> **Recommendation:** Schema changes should be made on a named branch, not directly on draft. This allows review and rollback. Always suggest using a branch when the user wants to modify schema objects on draft.
+> **Recommendation:** Schema changes should be made on a named branch. This allows review and rollback.
 
 ---
 

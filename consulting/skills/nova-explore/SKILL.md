@@ -48,7 +48,7 @@ Full API reference for read-only schema browsing. All tools, parameters, attribu
 
 ```json
 {
-  "branch": "<branchId or 'draft'>",
+  "branch": "<branchId>",
   "objectId": "<id, guid, or apiIdentifier>",
   "inherited": true,
   "attributes": "1000,1001,1012"
@@ -62,7 +62,7 @@ Full API reference for read-only schema browsing. All tools, parameters, attribu
 
 ```json
 {
-  "branch": "<branchId or 'draft'>",
+  "branch": "<branchId>",
   "ids": "2100500,2100501,2100502",
   "inherited": true,
   "attributes": "1000"

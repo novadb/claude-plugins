@@ -5,7 +5,7 @@ description: >
   conditional visibility, and form-type linkage. Use when the user wants to view or modify
   form configuration. For schema browsing beyond forms use explore-novadb,
   for searching data objects use nova-search.
-model: haiku
+model: sonnet
 maxTurns: 15
 disallowedTools:
   - Write

@@ -4,7 +4,7 @@ description: >
   Search and filter NovaDB data objects via the Index API. Use when the user wants to
   find, filter, or count objects by text, attributes, or type. For schema discovery
   use explore-novadb, for listing branches use nova-list-branches.
-model: haiku
+model: sonnet
 maxTurns: 12
 disallowedTools:
   - Write

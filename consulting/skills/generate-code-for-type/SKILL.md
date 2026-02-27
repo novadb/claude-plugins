@@ -31,7 +31,7 @@ Generate C# code for a single object type. ONLY for single-type code generation 
 }
 ```
 
-- `branch` — Branch ID or `"draft"` (string, required)
+- `branch` — Numeric branch ID (int32, required). Always use the branch the user is currently working on.
 - `language` — **Always use `"csharp"`**. This is the only supported language. (string, required)
 - `type` — Type ID, GUID, or ApiIdentifier (string, required)
 

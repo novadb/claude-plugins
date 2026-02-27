@@ -25,14 +25,14 @@ Soft-delete an attribute definition.
 
 ```json
 {
-  "branch": "draft",
+  "branch": "<branchId>",
   "objectIds": ["12345"],
   "comment": "No longer needed",
   "username": "jdoe"
 }
 ```
 
-- `branch` — Branch ID or `"draft"`
+- `branch` — Numeric branch ID (int32). Always use the branch the user is currently working on.
 - `objectIds` — Array with the attribute ID (string)
 - `comment` / `username` — (optional) Audit trail
 
