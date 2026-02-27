@@ -27,18 +27,18 @@ Upload input file for a job with chunked upload support.
 ### Start upload
 ```json
 {
-  "sourcePath": "input.csv"
+  "filename": "input.csv"
 }
 ```
 
-- `sourcePath` — Relative path to the file, e.g. `"input.csv"` (required). Absolute paths and path traversal (`../`) are rejected.
-- `filename` — Override filename (optional, defaults to basename of sourcePath)
+- `filename` — Dateiname ohne Pfad (z.B. `"input.csv"`) (required). Nur Dateiname, kein Pfad.
+- `uploadName` — Override-Name für den Upload (optional, Standard: `filename`)
 
 ### Continue upload
 ```json
 {
   "token": "upload-token-from-previous-call",
-  "sourcePath": "next-chunk"
+  "filename": "next-chunk"
 }
 ```
 
@@ -53,13 +53,13 @@ Upload input file for a job with chunked upload support.
 
 ### Single-chunk upload
 
-1. Call `novadb_cms_job_input_upload` with the file path
+1. Call `novadb_cms_job_input_upload` with the filename
 2. Response returns `{ token, name }` — use these as the `inputFile` parameter when creating a job
 
 ### Chunked upload (large files)
 
 1. Call `novadb_cms_job_input_upload` with the first chunk — response returns `{ token }`
-2. For each subsequent chunk, call `novadb_cms_job_input_continue` with the token and next chunk path
+2. For each subsequent chunk, call `novadb_cms_job_input_continue` with the token and next chunk filename
 3. Use the final `{ token, name }` as the `inputFile` parameter when creating a job
 
 ### Cancel

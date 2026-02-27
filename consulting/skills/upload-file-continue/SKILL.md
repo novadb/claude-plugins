@@ -24,15 +24,15 @@ Continue a chunked file upload that was started with `novadb_cms_upload_file`.
 
 ```json
 {
-  "sourcePath": "chunk-file",
+  "filename": "chunk-file",
   "extension": "jpg",
   "commit": false,
   "token": "<upload-token>"
 }
 ```
 
-- `sourcePath` — Relative path to the chunk file, e.g. `"chunk-file"` (required). Absolute paths and path traversal (`../`) are rejected.
-- `filename` — Override filename (optional, defaults to basename of sourcePath)
+- `filename` — Dateiname ohne Pfad (z.B. `"chunk-file"`) (required). Nur Dateiname, kein Pfad.
+- `uploadName` — Override-Name für den Upload (optional, Standard: `filename`)
 - `extension` — File extension without dot (required)
 - `commit` — `true` on the **final** chunk to complete the upload, `false` otherwise (required)
 - `token` — Upload token returned by `novadb_cms_upload_file` (required)

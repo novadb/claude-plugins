@@ -24,14 +24,14 @@ Start uploading a file to NovaDB. For single-chunk uploads, set `commit=true` to
 
 ```json
 {
-  "sourcePath": "photo.jpg",
+  "filename": "photo.jpg",
   "extension": "jpg",
   "commit": true
 }
 ```
 
-- `sourcePath` — Relative path to the file, e.g. `"photo.jpg"` or `"uploads/photo.jpg"` (required). Absolute paths and path traversal (`../`) are rejected.
-- `filename` — Override filename (optional, defaults to basename of sourcePath)
+- `filename` — Dateiname ohne Pfad (z.B. `"photo.jpg"`) (required). Nur Dateiname, kein Pfad.
+- `uploadName` — Override-Name für den Upload (optional, Standard: `filename`)
 - `extension` — File extension **without dot** (e.g. `jpg`, `pdf`, `png`) (required)
 - `commit` — `true` for single-chunk uploads (completes immediately), `false` for chunked uploads (required)
 
@@ -39,12 +39,12 @@ Start uploading a file to NovaDB. For single-chunk uploads, set `commit=true` to
 
 ### Single-chunk upload (`commit: true`)
 
-1. Call `novadb_cms_upload_file` with the file path and `commit: true`
+1. Call `novadb_cms_upload_file` with the filename and `commit: true`
 2. Response returns `{ token, fileIdentifier }` — the `fileIdentifier` is the hash used to download the file via `get-file` (concatenate with extension, e.g. `5fe618811cca585a2826a2da06e3ce1b.jpg`)
 
 ### Chunked upload (`commit: false`)
 
-1. Call `novadb_cms_upload_file` with the first chunk file path and `commit: false`
+1. Call `novadb_cms_upload_file` with the first chunk filename and `commit: false`
 2. Response returns `{ token }` — use this token with `novadb_cms_upload_file_continue` for subsequent chunks
 3. On the final chunk, call `novadb_cms_upload_file_continue` with `commit: true`
 
