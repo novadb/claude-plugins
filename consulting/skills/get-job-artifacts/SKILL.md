@@ -40,7 +40,7 @@ List, fetch, or download artifacts produced by a job.
 }
 ```
 
-- `targetPath` — (Optional) Filename, e.g. `"report.csv"`. Subdirectories like `"artifacts/report.csv"` are allowed and created automatically.
+- `targetPath` — (Optional) Relative path, e.g. `"report.csv"` or `"artifacts/report.csv"`. Default: `job-<jobId>-artifacts/<path>`. Subdirectories are created automatically. Absolute paths and path traversal (`../`) are rejected.
 
 ### Download all as ZIP
 ```json
@@ -50,7 +50,7 @@ List, fetch, or download artifacts produced by a job.
 }
 ```
 
-- `targetPath` — (Optional) Filename, e.g. `"all.zip"`. Subdirectories like `"artifacts/all.zip"` are allowed and created automatically.
+- `targetPath` — (Optional) Relative path, e.g. `"all.zip"` or `"artifacts/all.zip"`. Default: `job-<jobId>-artifacts.zip`. Subdirectories are created automatically. Absolute paths and path traversal (`../`) are rejected.
 
 ## Workflow
 

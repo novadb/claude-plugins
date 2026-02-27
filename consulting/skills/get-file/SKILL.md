@@ -35,7 +35,7 @@ Download a file from NovaDB by its file identifier and save it to disk. Returns 
 ```
 
 - `name` — File identifier (hash) with extension (e.g. `5fe618811cca585a2826a2da06e3ce1b.jpg`). For newly uploaded files this is the `fileIdentifier` returned by the upload API. For existing binary objects, read attribute **11000** for the identifier and **11005** for the extension, then concatenate them.
-- `targetPath` — (Optional) Filename, e.g. `"report.jpg"`. Subdirectories like `"exports/report.jpg"` are allowed and created automatically.
+- `targetPath` — (Optional) Relative path, e.g. `"report.jpg"` or `"exports/report.jpg"`. Default: `<name>` (the file identifier). Subdirectories are created automatically. Absolute paths and path traversal (`../`) are rejected.
 
 ## Workflow
 

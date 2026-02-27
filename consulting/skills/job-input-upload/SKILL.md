@@ -31,7 +31,7 @@ Upload input file for a job with chunked upload support.
 }
 ```
 
-- `sourcePath` — Filename, e.g. `"input.csv"` (required)
+- `sourcePath` — Relative path to the file, e.g. `"input.csv"` (required). Absolute paths and path traversal (`../`) are rejected.
 - `filename` — Override filename (optional, defaults to basename of sourcePath)
 
 ### Continue upload

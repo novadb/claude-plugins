@@ -30,7 +30,7 @@ Fetch logs produced by a job and save to disk.
 ```
 
 - `jobId` — Job ID (string, required)
-- `targetPath` — (Optional) Filename, e.g. `"job-abc-123.txt"`. Subdirectories like `"logs/job-abc-123.txt"` are allowed and created automatically.
+- `targetPath` — (Optional) Relative path, e.g. `"job-abc-123.txt"` or `"logs/job-abc-123.txt"`. Default: `job-<jobId>-logs.txt`. Subdirectories are created automatically. Absolute paths and path traversal (`../`) are rejected.
 
 ## Response
 
