@@ -27,7 +27,7 @@ Update properties of an existing attribute definition (typeRef=10). Only send ch
 
 ## Parameters
 
-- `branch` — Branch ID or `"draft"`
+- `branch` — Numeric branch ID (int32). Always use the branch the user is currently working on.
 - `objects` — Array with one object: `{ meta: { id: <attrId>, typeRef: 10 }, values: [...] }`
 - `comment` / `username` — (optional) Audit trail
 
@@ -70,7 +70,7 @@ Rename an attribute and make it required:
 
 ```json
 {
-  "branch": "draft",
+  "branch": "<branchId>",
   "objects": [
     {
       "meta": { "id": 12345, "typeRef": 10 },
@@ -90,7 +90,7 @@ Returns `{ updatedObjects, createdValues, transaction }`.
 
 ## Important
 
-- `apiIdentifier` is immutable after creation — it cannot be changed via update.
+- `apiIdentifier` CAN be changed via update, but must be unique across all branches and attributes. Only set when explicitly necessary.
 - Only provide fields that are changing. Omitted fields are untouched.
 
 ## Common Patterns

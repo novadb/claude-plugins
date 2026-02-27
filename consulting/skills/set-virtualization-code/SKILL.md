@@ -26,7 +26,7 @@ Set JavaScript code that computes a virtual attribute's value server-side. The a
 
 ```json
 {
-  "branch": "draft",
+  "branch": "<branchId>",
   "objects": [
     {
       "meta": { "id": 12345, "typeRef": 10 },
@@ -39,7 +39,7 @@ Set JavaScript code that computes a virtual attribute's value server-side. The a
 }
 ```
 
-- `branch` — Branch ID or `"draft"`
+- `branch` — Numeric branch ID (int32). Always use the branch the user is currently working on.
 - `objects[0].meta.id` — Attribute definition ID
 - `objects[0].meta.typeRef` — Always `10`
 - `objects[0].values[0].attribute` — Always `1009` (virtualization code)

@@ -4,7 +4,7 @@ description: >
   Read-only exploration of the NovaDB schema: object types, attribute definitions,
   forms, and application areas. For searching data objects use nova-search,
   for listing branches use nova-list-branches, for configuring forms use nova-forms.
-model: haiku
+model: sonnet
 maxTurns: 20
 disallowedTools:
   - Write

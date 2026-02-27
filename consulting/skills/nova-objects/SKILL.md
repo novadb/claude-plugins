@@ -429,8 +429,8 @@ Tool: `novadb_index_suggestions`
 
 ## Branch Parameter
 
-- **CMS API:** Accepts branch ID or `"draft"`.
-- **Index API:** Requires a **numeric branch ID string** (e.g. `"2100347"`). Never use `"draft"` or `"branchDefault"`.
+- **CMS API:** Requires a **numeric branch ID** (int32).
+- **Index API:** Requires a **numeric branch ID string** (e.g. `"2100347"`). Never use `"branchDefault"`.
 
 ---
 

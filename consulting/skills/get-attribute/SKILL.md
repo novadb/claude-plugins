@@ -25,13 +25,13 @@ Fetch a single attribute definition with all inherited properties.
 
 ```json
 {
-  "branch": "draft",
+  "branch": "<branchId>",
   "objectId": "12345",
   "inherited": true
 }
 ```
 
-- `branch` — Branch ID or `"draft"`
+- `branch` — Numeric branch ID (int32). Always use the branch the user is currently working on.
 - `objectId` — Attribute ID, GUID, or ApiIdentifier (string)
 - `inherited` — Set to `true` to include inherited values
 
