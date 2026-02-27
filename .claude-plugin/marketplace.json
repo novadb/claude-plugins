@@ -1,0 +1,13 @@
+{
+  "name": "novadb-plugins",
+  "owner": {
+    "name": "Noxum"
+  },
+  "plugins": [
+    {
+      "name": "consulting",
+      "source": "./consulting",
+      "description": "Skills and agents for NovaDB consultants — schema modeling, branch management, job orchestration, and more."
+    }
+  ]
+}
