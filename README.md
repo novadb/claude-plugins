@@ -13,7 +13,7 @@ Plugins for [Claude Cowork](https://claude.ai/cowork) and [Claude Code](https://
 Add this marketplace to Claude:
 
 ```bash
-claude plugin marketplace add noxum/claude-plugins
+claude plugin marketplace add novadb/claude-plugins
 ```
 
 Then install a plugin:
