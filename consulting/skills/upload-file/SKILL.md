@@ -30,7 +30,7 @@ Start uploading a file to NovaDB. For single-chunk uploads, set `commit=true` to
 }
 ```
 
-- `sourcePath` — Filename, e.g. `"photo.jpg"` (required)
+- `sourcePath` — Relative path to the file, e.g. `"photo.jpg"` or `"uploads/photo.jpg"` (required). Absolute paths and path traversal (`../`) are rejected.
 - `filename` — Override filename (optional, defaults to basename of sourcePath)
 - `extension` — File extension **without dot** (e.g. `jpg`, `pdf`, `png`) (required)
 - `commit` — `true` for single-chunk uploads (completes immediately), `false` for chunked uploads (required)

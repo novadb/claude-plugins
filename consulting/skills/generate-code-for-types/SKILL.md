@@ -35,7 +35,7 @@ Generate C# code for multiple or all object types in a branch and save to disk. 
 - `branch` — Branch ID or `"draft"` (string, required)
 - `language` — **Always use `"csharp"`**. This is the only supported language. (string, required)
 - `ids` — Comma-separated type IDs to filter (optional, omit for all types)
-- `targetPath` — (Optional) Filename, e.g. `"types.cs"`. Subdirectories like `"codegen/types.cs"` are allowed and created automatically.
+- `targetPath` — (Optional) Relative path, e.g. `"types.cs"` or `"codegen/types.cs"`. Default: `codegen-<branch>-<language>.cs`. Subdirectories are created automatically. Absolute paths and path traversal (`../`) are rejected.
 
 ## Important
 

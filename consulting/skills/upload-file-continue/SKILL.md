@@ -31,7 +31,7 @@ Continue a chunked file upload that was started with `novadb_cms_upload_file`.
 }
 ```
 
-- `sourcePath` — Filename of the chunk file, e.g. `"chunk-file"` (required)
+- `sourcePath` — Relative path to the chunk file, e.g. `"chunk-file"` (required). Absolute paths and path traversal (`../`) are rejected.
 - `filename` — Override filename (optional, defaults to basename of sourcePath)
 - `extension` — File extension without dot (required)
 - `commit` — `true` on the **final** chunk to complete the upload, `false` otherwise (required)
