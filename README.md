@@ -19,7 +19,7 @@ claude plugin marketplace add novadb/claude-plugins
 Then install a plugin:
 
 ```bash
-claude plugin install consulting@novadb-plugins
+claude plugin install novadb-consulting@novadb-plugins
 ```
 
 ## Prerequisites
@@ -39,6 +39,26 @@ No code, no infrastructure, no build steps — just markdown and JSON.
 ## Contributing
 
 To add a new plugin, create a directory at the repo root with the structure above and register it in `.claude-plugin/marketplace.json`.
+
+### Local Development (NovaDB Consultants)
+
+To actively develop and test skills and agents locally:
+
+1. Clone this repository:
+
+   ```bash
+   git clone https://github.com/novadb/claude-plugins.git
+   ```
+
+2. Start Claude Code with the local plugin directory:
+
+   ```bash
+   claude --plugin-dir=/path/to/claude-plugins/consulting
+   ```
+
+   This loads the skills and agents directly from your local checkout instead of the installed marketplace version.
+
+3. Create a `feature/*` branch for your changes and open a pull request when ready.
 
 ## License
 
