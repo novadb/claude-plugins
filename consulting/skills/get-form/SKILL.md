@@ -2,7 +2,7 @@
 name: get-form
 description: "Fetch a form and resolve all referenced field attribute definitions."
 user-invocable: false
-allowed-tools: novadb_cms_get_object, novadb_cms_get_objects
+allowed-tools: object_get
 ---
 
 # Get Form
@@ -16,22 +16,20 @@ allowed-tools: novadb_cms_get_object, novadb_cms_get_objects
 
 Fetch a form with its field attribute definitions resolved. Returns the form object and all referenced field definitions.
 
-## Tools Used
+## Tool
 
-- `novadb_cms_get_object` — Fetch the form
-- `novadb_cms_get_objects` — Fetch field attribute definitions in bulk
+`object_get` — used twice (form, then its fields in bulk)
 
 ## Workflow
 
 ### Step 1: Fetch the Form
 
-Call `novadb_cms_get_object`:
-
 ```json
 {
-  "branch": "<branch>",
-  "objectId": "<formId>",
-  "inherited": true
+  "branchId": 2100347,
+  "objectIds": [<formId>],
+  "languages": [201, 202],
+  "attributes": []
 }
 ```
 
@@ -41,13 +39,14 @@ From the form's `values` array, find all entries with `attribute: 5053`. Sort th
 
 ### Step 3: Fetch Field Definitions
 
-If there are field IDs, call `novadb_cms_get_objects` with a comma-separated list:
+If there are field IDs, call `object_get` again with them:
 
 ```json
 {
-  "branch": "<branch>",
-  "objectIds": "<attrDefId1>,<attrDefId2>,<attrDefId3>",
-  "inherited": true
+  "branchId": 2100347,
+  "objectIds": [<attrDefId1>, <attrDefId2>, <attrDefId3>],
+  "languages": [201, 202],
+  "attributes": []
 }
 ```
 
@@ -60,12 +59,12 @@ Present the result as `{ form, fields }` where `form` is the full form object an
 - Form content is stored in attribute **5053** as multi-value ObjRef entries
 - Sort by `sortReverse` ascending to get the correct field order
 - If the form has no fields (no 5053 entries), return an empty `fields` array
-- The `formId` parameter accepts an ID, GUID, or ApiIdentifier
+- `object_get` accepts numeric IDs only — resolve GUID/apiIdentifier via `object_query` first if needed
 
 ## Common Patterns
 
 ### ObjRef Resolution
-Form field references (attribute 5053) are numeric IDs pointing to attribute definitions. Resolve them using `novadb_cms_get_objects` with `inherited: true`.
+Form field references (attribute 5053) are numeric IDs pointing to attribute definitions. Resolve them with another `object_get` call.
 
 ### API Response (GET)
-Returns a `CmsObject` with `meta` and `values` array containing form properties and field references.
+Returns an `ObjectQueryResult` with `objects[]` each having `meta` and `values`.

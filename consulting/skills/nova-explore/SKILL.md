@@ -2,7 +2,7 @@
 name: nova-explore
 description: "Schema browsing API reference — tools, parameters, attribute ID tables, pagination, and type discovery."
 user-invocable: false
-allowed-tools: novadb_cms_get_object, novadb_cms_get_objects, novadb_cms_get_typed_objects, novadb_cms_get_branch, novadb_index_search_objects, novadb_index_count_objects, novadb_index_object_occurrences, novadb_index_suggestions, novadb_index_match_strings
+allowed-tools: object_get, object_query, object_count, objecttype_describe, objecttype_query, work_package_query, language_query
 ---
 
 # NovaDB Schema Exploration Reference
@@ -21,172 +21,117 @@ Full API reference for read-only schema browsing. All tools, parameters, attribu
 
 ## Available Tools
 
-### CMS API (read)
-
 | Tool | Purpose |
 |------|---------|
-| `novadb_cms_get_object` | Fetch a single object by ID, GUID, or ApiIdentifier |
-| `novadb_cms_get_objects` | Fetch multiple objects by comma-separated IDs |
-| `novadb_cms_get_typed_objects` | Browse objects by type (schema browsing) |
-| `novadb_cms_get_branch` | Fetch branch metadata |
+| `object_get` | Fetch one or more objects by numeric id(s) |
+| `object_query` | Typed listing and full-text search (with optional filters / sorting / pagination) |
+| `object_count` | Count matching objects without fetching |
+| `object_xmllinkcount` | Count objects whose XML attributes reference given ids |
+| `objecttype_describe` | Full structured schema of one object type (attributes, forms, flags) |
+| `objecttype_query` | List object types (defaults to customer types; set `includeSystemTypes: true` for system types) |
+| `work_package_query` | List and filter branches (work packages) |
+| `language_query` | Enumerate available languages with their numeric IDs |
 
-### Index API (search)
-
-| Tool | Purpose |
-|------|---------|
-| `novadb_index_search_objects` | Full-text search with filters, sorting, pagination |
-| `novadb_index_count_objects` | Count matching objects without fetching |
-| `novadb_index_object_occurrences` | Faceted counts (e.g. per type, per modifier) |
-| `novadb_index_suggestions` | Autocomplete / typeahead suggestions |
-| `novadb_index_match_strings` | Find matching string values for an attribute |
+> The old Index API extras — `suggestions`, `match_strings`, `object_occurrences`, `work_item_occurrences` — are **not** available in the current C# MCP. If faceted counts are needed, aggregate from pages of `object_query`/`object_count` instead.
 
 ---
 
-## CMS Tool Parameters
+## Tool Parameters
 
-### `novadb_cms_get_object`
+### `object_get`
 
 ```json
 {
-  "branch": "<branchId>",
-  "objectId": "<id, guid, or apiIdentifier>",
-  "inherited": true,
-  "attributes": "1000,1001,1012"
+  "branchId": 2100347,
+  "objectIds": [2100500, 2100501, 2100502],
+  "languages": [201, 202],
+  "attributes": []
 }
 ```
 
-- `inherited` — Always use `true` to include inherited values
-- `attributes` — Optional comma-separated list to filter returned attributes
+- `branchId` — int.
+- `objectIds` — int[] (one or many).
+- `languages` — int[] (e.g. `[201, 202]`).
+- `attributes` — int[] (empty → all).
 
-### `novadb_cms_get_objects`
-
-```json
-{
-  "branch": "<branchId>",
-  "ids": "2100500,2100501,2100502",
-  "inherited": true,
-  "attributes": "1000"
-}
-```
-
-- `ids` — Comma-separated object IDs (batch fetch)
-
-### `novadb_cms_get_typed_objects`
+### `object_query`
 
 ```json
 {
-  "branch": "branchDefault",
-  "type": "typeObjectType",
-  "inherited": true,
-  "attributes": "1000,1012,1021",
-  "take": 100
-}
-```
-
-- `branch` — Use `"branchDefault"` for schema objects, or a numeric branch ID
-- `type` — Special string identifiers (see below) or a numeric typeRef
-- `take` — Max objects per page (default varies)
-- `continue` — Pagination token from previous response
-
-**Special `type` identifiers:**
-
-| Identifier | Description |
-|------------|-------------|
-| `branchDefault` | The default branch (use as `branch` value) |
-| `typeBranch` | Branch objects (typeRef 40) |
-| `typeObjectType` | Object type definitions (typeRef 0) |
-| `typeAttributeDefinition` | Attribute definitions (typeRef 10) |
-| `typeForm` | Form definitions (typeRef 50) |
-| `typeApplicationArea` | Application areas (typeRef 60) |
-
-### `novadb_cms_get_branch`
-
-```json
-{
-  "branch": "<branchId>"
-}
-```
-
-Returns branch metadata including name, parent, type, state.
-
----
-
-## Index Tool Parameters
-
-### `novadb_index_search_objects`
-
-```json
-{
-  "branch": "2100347",
-  "filter": {
-    "objectTypeIds": [0],
-    "searchPhrase": "Company"
-  },
-  "sortBy": [{ "sortBy": 3 }],
+  "branchId": 2100347,
+  "objectTypeId": 0,
+  "languages": [201, 202],
+  "searchPhrase": "Company",
+  "filters": ["1001:0:0:0:ObjRef"],
+  "attributes": [],
   "skip": 0,
   "take": 20
 }
 ```
 
-- `branch` — **Numeric string only** (e.g. `"2100347"`). Never `"draft"` or `"branchDefault"`.
-- `filter.objectTypeIds` — Array of typeRef values to filter by
-- `filter.searchPhrase` — Full-text search query
-- `filter.filters` — Attribute-level filters (see Filter section below)
-- `sortBy` — Array of sort criteria
-- `skip` / `take` — Pagination (defaults: skip=0, take=5)
+- `branchId` — int.
+- `objectTypeId` — int (the typeRef to list). Use `objectTypeId: 10` for attribute definitions, `0` for object types, etc.
+- `languages` — int[].
+- `searchPhrase` — optional wildcard search (e.g. `"Com*"`).
+- `searchAttributes` — optional `attr:lang` strings to scope the search.
+- `filters` — optional array of `"<attrId>:<lang>:<variant>:<operator>:<value>"` strings (see §Filters).
+- `attributes` — optional int[] to restrict returned attributes.
+- `skip` / `take` — pagination (defaults: 0 / 20).
 
-**Response:** `{ objects, more, changeTrackingVersion }`. Each object has `objectId`, `displayName`, `typeRef`, `modifiedBy`, `modified`.
+### `object_count`
 
-When `more: true`, increment `skip` by `take` for the next page.
+Same params as `object_query` (minus `attributes`, `skip`, `take`). Returns `{ count }`.
 
-### `novadb_index_count_objects`
-
-```json
-{
-  "branch": "2100347",
-  "filter": { "objectTypeIds": [10] }
-}
-```
-
-**Response:** `{ count }`
-
-### `novadb_index_object_occurrences`
+### `objecttype_describe`
 
 ```json
 {
-  "branch": "2100347",
-  "filter": { "objectTypeIds": [10] },
-  "getModifiedByOccurrences": true
+  "branchId": 2100347,
+  "objectTypeId": 2100000,
+  "languages": [201, 202]
 }
 ```
 
-Returns faceted counts — useful for overview statistics.
+Returns `{ id, apiIdentifier, name, description, displayNameAttrId, createFormId, detailFormIds, attributes[] }`. Each attribute carries `{ dataType, multiValue, languageDependent, variantDependent, defaultForm, apiIdentifier }`.
 
-### Attribute Filters
-
-Add `filters` array inside `filter`:
+### `objecttype_query`
 
 ```json
 {
-  "filter": {
-    "objectTypeIds": [10],
-    "filters": [
-      {
-        "attrId": 1001,
-        "langId": 0,
-        "variantId": 0,
-        "value": "ObjRef",
-        "compareOperator": 0
-      }
-    ]
-  }
+  "branchId": 2100347,
+  "languages": [201, 202],
+  "includeSystemTypes": false,
+  "searchPhrase": "Company",
+  "skip": 0,
+  "take": 20
 }
 ```
 
-**compareOperator values:**
+Defaults to customer types only. Set `includeSystemTypes: true` to also get built-in types (Attribute Definition, Form, etc.).
 
-| Value | Meaning |
-|-------|---------|
+### `work_package_query`
+
+```json
+{
+  "languages": [201, 202],
+  "take": 100
+}
+```
+
+No `branchId` parameter — lists all work packages. Filter by id/parent/assignee via `filters`.
+
+### `language_query`
+
+No parameters. Returns `{ languages: [ { id, name, isoCode } ] }`. Useful when you don't yet know the numeric language IDs for the user's locales.
+
+---
+
+## Filters (string syntax)
+
+`filters` is an array of strings with shape `"<attrId>:<langId>:<variantId>:<operator>:<value>"`.
+
+| Operator | Meaning |
+|----------|---------|
 | 0 | Equal |
 | 1 | NotEqual |
 | 2 | GreaterThan |
@@ -194,45 +139,44 @@ Add `filters` array inside `filter`:
 | 4 | Like |
 | 7 | ObjRefLookup |
 
-### sortBy values
+Examples:
 
-| Value | Field |
-|-------|-------|
-| 0 | Score (relevance) |
-| 1 | Object ID |
-| 3 | Display name |
-| 4 | Modified date |
-| 5 | Modified by |
-
-Add `"reverse": true` to any entry for descending order.
+```
+"1001:0:0:0:ObjRef"       // data type equals ObjRef
+"1018:0:0:0:true"         // required = true (booleans encoded as "true"/"false")
+"1000:201:0:4:Comp*"      // name EN LIKE "Comp*"
+"4000:0:0:7:2100347"      // parent branch (ObjRef lookup) = 2100347
+```
 
 ---
 
 ## CmsValue Structure
 
-Every object value follows this format:
+Every object value follows:
 
 ```typescript
 {
-  attribute: number,   // Attribute definition ID
-  language: number,    // Language ID (201=EN, 202=DE, 0=language-independent)
-  variant: number,     // Variant axis (0=default)
-  value: unknown,      // The actual value
-  sortReverse?: number // Multi-value ordering (0, 1, 2, ...)
+  attribute: number,     // Attribute definition ID
+  language: number,      // 201=EN, 202=DE, 0=language-independent
+  variant: number,       // 0=default
+  value: unknown,        // The actual value
+  sortReverse?: number   // Multi-value ordering (optional — array-in-value is auto-expanded)
 }
 ```
+
+When writing (`object_create`/`object_update`), `values` is passed as a JSON-encoded **string** containing an array of CmsValues. For multi-value attributes either use explicit `sortReverse` entries OR put an array inside `value` — the MCP expands it.
 
 ---
 
 ## typeRef Constants
 
-| typeRef | Description | Use in `get_typed_objects` |
-|---------|-------------|---------------------------|
-| 0 | Object types | `type: "typeObjectType"` |
-| 10 | Attribute definitions | `type: "typeAttributeDefinition"` |
-| 40 | Branches | `type: "typeBranch"` |
-| 50 | Forms | `type: "typeForm"` |
-| 60 | Application areas | `type: "typeApplicationArea"` |
+| typeRef | Description |
+|---------|-------------|
+| 0 | Object types |
+| 10 | Attribute definitions |
+| 40 | Branches / work packages |
+| 50 | Forms |
+| 60 | Application areas |
 
 ---
 
@@ -253,9 +197,11 @@ Apply to all object types.
 | Attribute | ID | Type | Notes |
 |-----------|------|------|-------|
 | Create form | 5001 | ObjRef | Single form reference |
-| Detail forms | 5002 | ObjRef | Multi-value with `sortReverse` |
+| Detail forms | 5002 | ObjRef | Multi-value |
 | Display name attribute | 5005 | ObjRef | Which attribute serves as display name |
 | Binary proxy | 5009 | Boolean | |
+
+> Prefer `objecttype_describe` over reading these attributes directly.
 
 ---
 
@@ -290,7 +236,7 @@ String.DataType, String.InheritanceBehavior, String.UserName, String.RGBColor
 
 | Attribute | ID | Type | Notes |
 |-----------|------|------|-------|
-| Form content (fields) | 5053 | ObjRef | Multi-value with `sortReverse` |
+| Form content (fields) | 5053 | ObjRef | Multi-value |
 | Condition attribute | 5054 | ObjRef | Single |
 | Condition refs | 5055 | ObjRef | Multi-value |
 | Is single editor | 5056 | Boolean | |
@@ -320,7 +266,7 @@ String.DataType, String.InheritanceBehavior, String.UserName, String.RGBColor
 
 ## Type → Form → Attribute Chain
 
-There is NO direct link from object types to attribute definitions. The chain is:
+Use `objecttype_describe` as the one-shot way to resolve this chain. The raw chain is still:
 
 ```
 Object Type (typeRef=0)
@@ -330,40 +276,33 @@ Object Type (typeRef=0)
       → Attribute Definitions (typeRef=10)
 ```
 
-To discover which attributes belong to a type:
-1. Fetch the type with `get_object` (include attrs 5001, 5002)
-2. Collect form IDs from 5001 and 5002 values
-3. Fetch forms with `get_objects` (include attr 5053)
-4. Collect attribute definition IDs from 5053 values
-5. Fetch attribute definitions with `get_objects`
-
 ---
 
 ## Application Area Discovery Strategy
 
 To find object types by domain or theme:
 
-1. Search Application Areas: `novadb_index_search_objects` with `objectTypeIds: [60]` and the theme name as `searchPhrase`
-2. Fetch the matching App Area with `novadb_cms_get_object` (include attr 6001)
+1. `object_query` with `objectTypeId: 60` and `searchPhrase: "<theme>"`
+2. `object_get` on the matching App Area with `attributes: [6001]`
 3. Extract type IDs from 6001 values
-4. Fetch those types with `novadb_cms_get_objects`
+4. `objecttype_describe` for each, or `object_get` for raw `CmsObject`s
 
-Do NOT search object types (typeRef=0) by theme name — types have generic names (e.g. "Character", not "Star Wars"). Application Areas provide the thematic grouping.
+Do NOT search object types (typeRef=0) by theme name — types have generic names. Application Areas provide the thematic grouping.
 
 ---
 
 ## ObjRef Resolution Pattern
 
-When CmsValue entries contain numeric ObjRef values:
+When values contain numeric ObjRef references:
 
 1. Collect all unique ObjRef IDs across the objects
-2. Batch-fetch with `novadb_cms_get_objects`:
+2. Batch-fetch with `object_get`:
    ```json
    {
-     "branch": "<branch>",
-     "ids": "2100500,2100501,2100502",
-     "attributes": "1000",
-     "inherited": true
+     "branchId": 2100347,
+     "objectIds": [2100500, 2100501, 2100502],
+     "languages": [201, 202],
+     "attributes": [1000]
    }
    ```
 3. Match each resolved object's `meta.id` to the original ObjRef values
@@ -373,16 +312,6 @@ When CmsValue entries contain numeric ObjRef values:
 
 ## Pagination
 
-### CMS API
+All listing tools (`object_query`, `objecttype_query`, `work_package_query`) use `skip` / `take`. When the response indicates more results remain, advance `skip` by `take` for the next page.
 
-Uses `continue` token:
-- Response includes a `continue` string when more results exist
-- Pass it as the `continue` parameter in the next call
-- Stop when no `continue` token is returned
-
-### Index API
-
-Uses `skip` / `take`:
-- Response includes `more: true` when more results exist
-- Increment `skip` by `take` for the next page
-- Default `take` is 5 — increase for larger batches
+`comment_query` / `job_query` use an opaque `continueToken` — pass it back in the next call.

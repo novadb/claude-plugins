@@ -2,7 +2,7 @@
 name: get-attribute
 description: "Fetch a single attribute definition by ID."
 user-invocable: false
-allowed-tools: novadb_cms_get_object
+allowed-tools: object_get
 ---
 
 # Get Attribute
@@ -19,25 +19,27 @@ Fetch a single attribute definition with all inherited properties.
 
 ## Tool
 
-`novadb_cms_get_object`
+`object_get`
 
 ## Parameters
 
 ```json
 {
-  "branch": "<branchId>",
-  "objectId": "12345",
-  "inherited": true
+  "branchId": 2100347,
+  "objectIds": [12345],
+  "languages": [201, 202],
+  "attributes": []
 }
 ```
 
-- `branch` — Numeric branch ID (int32). Always use the branch the user is currently working on.
-- `objectId` — Attribute ID, GUID, or ApiIdentifier (string)
-- `inherited` — Set to `true` to include inherited values
+- `branchId` — Numeric branch ID (int32). Always use the branch the user is currently working on.
+- `objectIds` — Array of object IDs (int[]). Pass `[<attrId>]` for a single attribute.
+- `languages` — Languages to load, e.g. `[201, 202]` for EN + DE. Use `language_query` if unknown.
+- `attributes` — Optional list of attribute IDs to restrict the fetch (empty = all).
 
 ## Response
 
-Returns a `CmsObject` with `meta` (id, guid, apiIdentifier, typeRef=10) and `values` array containing all attribute properties.
+Returns `ObjectQueryResult` containing one object with `meta` (id, guid, apiIdentifier, typeRef=10) and `values` array containing all attribute properties.
 
 ## Common Patterns
 
@@ -47,4 +49,4 @@ Every value entry follows: `{ attribute, language, variant, value, sortReverse? 
 - `variant`: 0=default
 
 ### API Response (GET)
-Returns a `CmsObject` with `meta` (id, guid, apiIdentifier, typeRef) and `values` array.
+Returns an `ObjectQueryResult` wrapping a `CmsObject` array with `meta` and `values`.

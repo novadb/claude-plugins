@@ -1,11 +1,14 @@
 ---
 name: job-input-upload
-description: "Upload input file for a job with chunked upload support."
+description: "[UNSUPPORTED in current MCP] Upload input file for a job with chunked upload support."
 user-invocable: false
 allowed-tools: novadb_cms_job_input_upload, novadb_cms_job_input_continue, novadb_cms_job_input_cancel
 ---
 
 # Job Input Upload
+
+> ⚠️ **UNSUPPORTED IN THE CURRENT C# MCP.**
+> This skill relies on `novadb_cms_job_input_upload`, `novadb_cms_job_input_continue`, and `novadb_cms_job_input_cancel`, none of which are exposed by the current NovaDB MCP (Noxum.Nova.AI.Mcp). Jobs that require an input file cannot be started from Claude until this capability is added back. The content below is preserved for that future state; do not attempt to invoke.
 
 Upload input file for a job with chunked upload support.
 

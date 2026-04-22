@@ -2,7 +2,7 @@
 name: create-branch
 description: "Create a new branch (work package) in NovaDB."
 user-invocable: false
-allowed-tools: novadb_cms_create_branch
+allowed-tools: work_package_create
 ---
 
 # Create Branch
@@ -19,59 +19,40 @@ Create a new branch (work package) in NovaDB.
 
 ## Tool
 
-`novadb_cms_create_branch`
+`work_package_create`
 
 ## Parameters
 
-- `values` — Array of `CmsValue` objects (see below)
-- `comment` — (optional) Audit trail comment
-- `username` — (optional) Acting username for audit
-
-## Branch Attribute IDs
-
-| Attribute      | ID   | Type            | Notes                                                       |
-| -------------- | ---- | --------------- | ----------------------------------------------------------- |
-| Name (EN)      | 1000 | String          | `language: 201`, `variant: 0`                               |
-| Name (DE)      | 1000 | String          | `language: 202`, `variant: 0`                               |
-| Parent branch  | 4000 | ObjRef          | `language: 0`, `variant: 0`                                 |
-| Branch type    | 4001 | ObjRef          | `language: 0`, `variant: 0`                                 |
-| Workflow state | 4002 | ObjRef          | `language: 0`, `variant: 0`                                 |
-| Due date       | 4003 | DateTime.Date   | `language: 0`, `variant: 0`, ISO format e.g. `"2026-03-01"` |
-| Assigned to    | 4004 | String.UserName | `language: 0`, `variant: 0`                                 |
-
-## Value Construction
-
-Build a `values` array with one entry per field. Only include fields you want to set.
+The new MCP takes typed named parameters — no raw `values` array.
 
 ```json
 {
-  "values": [
-    { "attribute": 1000, "language": 201, "variant": 0, "value": "My Branch" },
-    { "attribute": 1000, "language": 202, "variant": 0, "value": "Mein Zweig" },
-    { "attribute": 4000, "language": 0, "variant": 0, "value": 2100347 },
-    { "attribute": 4001, "language": 0, "variant": 0, "value": 123 },
-    { "attribute": 4002, "language": 0, "variant": 0, "value": 456 },
-    { "attribute": 4003, "language": 0, "variant": 0, "value": "2026-06-01" },
-    { "attribute": 4004, "language": 0, "variant": 0, "value": "jdoe" }
-  ],
+  "name": "My Branch",
+  "parentBranchId": 2100347,
+  "branchTypeId": 123,
+  "assignedTo": "jdoe",
   "comment": "Created via AI assistant"
 }
 ```
+
+- `name` — Branch name (string, required).
+- `parentBranchId` — Parent branch ID (int, required).
+- `branchTypeId` — (optional) Branch type (ObjRef int).
+- `assignedTo` — (optional) Username.
+- `comment` — (optional) Audit trail.
+
+### What about the other attributes (description, workflow state, due date)?
+
+The typed create tool only accepts the five parameters above. To set workflow state (attr 4002), due date (attr 4003), or additional language names (attr 1000 @ lang 202), call `update-branch` immediately after creation — the create tool returns the new branch id.
 
 ## Response
 
 Returns the created branch as a `CmsObject` with `meta` (id, guid, typeRef) and `values`.
 
-## Minimum Required
-
-Only `nameEn` (attribute 1000, language 201) is semantically required. All other fields are optional.
-
 ## Common Patterns
 
-### CmsValue Format
-Every value entry follows: `{ attribute, language, variant, value, sortReverse? }`
-- `language`: 201=EN, 202=DE, 0=language-independent
-- `variant`: 0=default
+### Follow-up updates
+If additional metadata is needed beyond the five typed parameters, chain `create-branch` → `update-branch` in one flow.
 
 ### API Response (Create Branch)
 Returns the created branch as a `CmsObject` with `meta` and `values`.

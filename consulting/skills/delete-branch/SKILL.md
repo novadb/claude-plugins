@@ -1,41 +1,39 @@
 ---
 name: delete-branch
-description: "Permanently delete a branch. This cannot be undone."
+description: "Permanently delete a branch (work package). This cannot be undone."
 user-invocable: false
-allowed-tools: novadb_cms_delete_branch
+allowed-tools: work_package_delete
 ---
 
 # Delete Branch
 
-Permanently delete a branch. This cannot be undone.
+Permanently delete a branch (work package). This cannot be undone.
 
 ## Scope
 
-**This skill ONLY handles:** Permanently deleting an existing branch.
+**This skill ONLY handles:** Permanently deleting an existing branch (work package).
 
 **For finding the branch to delete** → use `get-branch` or `list-branches`
 
 ## Tool
 
-`novadb_cms_delete_branch`
+`work_package_delete`
 
 ## Parameters
 
 ```json
 {
-  "id": "2100500",
-  "comment": "No longer needed",
-  "username": "jdoe"
+  "branchId": 2100500,
+  "comment": "No longer needed"
 }
 ```
 
-- `id` — Branch ID (string, required)
+- `branchId` — Branch ID (int, required)
 - `comment` — (optional) Audit trail comment
-- `username` — (optional) Acting username for audit
 
 ## Response
 
-Returns deletion result with transaction ID.
+Returns `DeleteWorkPackageResult` with `transaction` info.
 
 ## Warning
 

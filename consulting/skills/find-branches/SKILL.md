@@ -1,169 +1,92 @@
 ---
 name: nova-find-branches
-description: "Search and filter branches via the Index API."
+description: "Search and filter branches (work packages)."
 user-invocable: false
-allowed-tools: novadb_index_search_objects, novadb_index_count_objects, novadb_index_object_occurrences
+allowed-tools: work_package_query
 ---
 
 # Find Branches Reference
 
-Search for branches by name, assigned user, parent, or other criteria using the Index API.
+Search for branches by name, assigned user, parent, or other criteria.
 
 ## Scope
 
-**This skill ONLY handles:** Searching and filtering branches by criteria (name, assignee, parent, state) via the Index API.
+**This skill ONLY handles:** Searching and filtering branches by criteria (name, assignee, parent, state).
 
 **For a quick overview of all branches** → use `list-branches`
 **For fetching a single branch by ID** → use `get-branch`
 
 > **Note:** NovaDB object IDs start at 2²¹ (2,097,152). All numeric IDs in examples are samples — always use real IDs from the target system.
 >
-> Branch objects (typeRef 40) are system-level. Using `branch: "4"` (Default) returns **all branches** — results are complete.
+> The new C# MCP does not expose the Index API's count / occurrence / facet tools. Only result-list queries are available — if you need counts/facets, fetch pages and aggregate client-side.
 
-## Count First (recommended)
+## Tool
 
-Get the total count before fetching results:
-
-```json
-{
-  "branch": "4",
-  "filter": { "objectTypeIds": [40] }
-}
-```
-
-Tool: `novadb_index_count_objects`. Response: `{ count }`.
-
----
+`work_package_query`
 
 ## Search
 
-Call `novadb_index_search_objects`:
-
 ```json
 {
-  "branch": "4",
-  "filter": {
-    "objectTypeIds": [40],
-    "searchPhrase": "My Branch"
-  },
+  "languages": [201, 202],
+  "searchPhrase": "feature",
   "skip": 0,
   "take": 20
 }
 ```
 
-- `branch` — Always `"4"` (the Default branch that contains all branch objects)
-- `objectTypeIds` — Always `[40]` (typeRef for branches)
-- `searchPhrase` — (optional) Full-text search query
-- `skip` / `take` — Pagination (defaults: skip=0, take=5)
+- `languages` — Languages for display names.
+- `searchPhrase` — (optional) Full-text / wildcard search.
+- `skip` / `take` — Pagination (defaults: skip=0, take=20).
 
 ### Response
 
 ```json
 {
   "objects": [
-    {
-      "objectId": 2100347,
-      "displayName": "My Branch",
-      "typeRef": 40,
-      "modifiedBy": "admin",
-      "modified": "2025-01-15T10:30:00Z",
-      "deleted": false,
-      "hasDisplayName": true
-    }
-  ],
-  "more": false,
-  "changeTrackingVersion": 12345
+    { "meta": { "id": 2100347, "typeRef": 40 }, "values": [ { "attribute": 1000, "language": 201, "value": "My Branch" } ] }
+  ]
 }
 ```
 
-When `more: true`, increment `skip` by `take` for the next page.
-
----
-
-## Sorting
-
-Add `sortBy` for ordered results:
-
-```json
-{
-  "sortBy": [{ "sortBy": 3 }]
-}
-```
-
-| sortBy | Field |
-|--------|-------|
-| 0 | Score (relevance) |
-| 1 | Object ID |
-| 3 | Display name |
-| 4 | Modified date |
-| 5 | Modified by |
-
-Add `"reverse": true` to any entry for descending order.
+Advance `skip` by `take` for the next page when more results remain.
 
 ---
 
 ## Attribute Filters
 
-Add `filters` array to the `filter` object for field-specific filtering.
+`filters` is an array of strings with the shape `"<attrId>:<langId>:<variantId>:<operator>:<value>"`.
 
 ### Filter by assigned user
 
 ```json
 {
-  "branch": "4",
-  "filter": {
-    "objectTypeIds": [40],
-    "filters": [
-      {
-        "attrId": 4004,
-        "langId": 0,
-        "variantId": 0,
-        "value": "jdoe",
-        "compareOperator": 0
-      }
-    ]
-  }
+  "filters": ["4004:0:0:0:jdoe"]
 }
 ```
 
-`compareOperator: 0` = Equal
+Operator `0` = Equal.
 
 ### Filter by parent branch
 
 ```json
 {
-  "branch": "4",
-  "filter": {
-    "objectTypeIds": [40],
-    "filters": [
-      {
-        "attrId": 4000,
-        "langId": 0,
-        "variantId": 0,
-        "value": "2100347",
-        "compareOperator": 7
-      }
-    ]
-  }
+  "filters": ["4000:0:0:7:2100347"]
 }
 ```
 
-`compareOperator: 7` = ObjRef lookup (for reference hierarchy)
+Operator `7` = ObjRef lookup (follows reference hierarchy).
 
 ### Combined example
 
 ```json
 {
-  "branch": "4",
-  "filter": {
-    "objectTypeIds": [40],
-    "searchPhrase": "feature",
-    "filters": [
-      { "attrId": 4004, "langId": 0, "variantId": 0, "value": "jdoe", "compareOperator": 0 },
-      { "attrId": 4000, "langId": 0, "variantId": 0, "value": "2100347", "compareOperator": 7 }
-    ]
-  },
-  "sortBy": [{ "sortBy": 3 }],
+  "languages": [201, 202],
+  "searchPhrase": "feature",
+  "filters": [
+    "4004:0:0:0:jdoe",
+    "4000:0:0:7:2100347"
+  ],
   "skip": 0,
   "take": 20
 }
@@ -180,26 +103,10 @@ Add `filters` array to the `filter` object for field-specific filtering.
 | 4 | Like |
 | 7 | ObjRefLookup |
 
----
-
-## Branch Statistics
-
-Use `novadb_index_object_occurrences` to get faceted counts without fetching all data:
-
-```json
-{
-  "branch": "4",
-  "filter": { "objectTypeIds": [40] },
-  "getModifiedByOccurrences": true
-}
-```
-
-Returns counts per user who last modified branches — useful for dashboards and summaries.
-
 ## Common Patterns
 
-### Index API Branch Parameter
-The Index API requires a **numeric branch ID**. Use `"4"` (Default branch) to search all branches since branches are stored in the default branch.
+### API Response
+Returns `ObjectQueryResult` with `objects[]` and pagination info.
 
-### API Response (Index Search)
-Returns `{ totalCount, items: [{ id, values: { name, ... } }] }`. Use `skip` and `take` for pagination.
+### No Facets / Occurrences
+The old Index API facet tools (`object_occurrences`, `suggestions`, `match_strings`) are not available in the new C# MCP. If you need counts or dashboards, page through the result set.

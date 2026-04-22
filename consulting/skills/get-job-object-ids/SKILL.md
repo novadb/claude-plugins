@@ -1,11 +1,14 @@
 ---
 name: get-job-object-ids
-description: "Fetch array of object IDs processed by a job."
+description: "[UNSUPPORTED in current MCP] Fetch array of object IDs processed by a job."
 user-invocable: false
 allowed-tools: novadb_cms_get_job_object_ids
 ---
 
 # Get Job Object IDs
+
+> ⚠️ **UNSUPPORTED IN THE CURRENT C# MCP.**
+> This skill relies on `novadb_cms_get_job_object_ids`, which is not exposed by the current NovaDB MCP (Noxum.Nova.AI.Mcp). Calling it will fail. The content below is preserved for the day this capability is added back; do not attempt to invoke.
 
 Fetch array of object IDs processed by a job.
 

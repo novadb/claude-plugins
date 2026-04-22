@@ -1,21 +1,19 @@
 ---
 name: nova-search
-description: "Index API search workflow and reference — parameters, filters, sorting, pagination, and ObjRef resolution."
+description: "Object search workflow and reference — parameters, filters, pagination, and ObjRef resolution."
 user-invocable: false
-allowed-tools: novadb_index_search_objects, novadb_index_count_objects, novadb_index_object_occurrences, novadb_cms_get_object, novadb_cms_get_objects
+allowed-tools: object_query, object_count, object_get, objecttype_describe
 ---
 
 # NovaDB Search Reference
 
 ## Scope
 
-**This skill is EXCLUSIVELY a reference for:** Searching, filtering, and counting NovaDB data objects via the Index API with CMS detail resolution.
+**This skill is EXCLUSIVELY a reference for:** Searching, filtering, and counting NovaDB data objects via `object_query` with detail resolution via `object_get`.
 
 **For schema browsing** → see `nova-explore` skill
 **For form configuration** → see `nova-forms` skill
 **For branch listing** → see `nova-list-branches` skill
-
-Step-by-step search workflow and complete Index API reference.
 
 > **Note:** NovaDB object IDs start at 2²¹ (2,097,152). All numeric IDs in examples are samples — always use real IDs from the target system.
 
@@ -27,15 +25,13 @@ Get the total count before fetching results:
 
 ```json
 {
-  "branch": "2100347",
-  "filter": {
-    "objectTypeIds": [10],
-    "searchPhrase": "company"
-  }
+  "branchId": 2100347,
+  "objectTypeId": 10,
+  "searchPhrase": "company"
 }
 ```
 
-Tool: `novadb_index_count_objects`. Response: `{ count }`.
+Tool: `object_count`. Response: `{ count }`.
 
 ### 2. Search
 
@@ -43,33 +39,31 @@ Fetch matching objects:
 
 ```json
 {
-  "branch": "2100347",
-  "filter": {
-    "objectTypeIds": [10],
-    "searchPhrase": "company"
-  },
-  "sortBy": [{ "sortBy": 3 }],
+  "branchId": 2100347,
+  "objectTypeId": 10,
+  "languages": [201, 202],
+  "searchPhrase": "company",
   "skip": 0,
   "take": 20
 }
 ```
 
-Tool: `novadb_index_search_objects`.
+Tool: `object_query`.
 
 ### 3. Resolve ObjRef values
 
-For each result that contains ObjRef values you want to display, batch-fetch the referenced objects:
+For results that contain ObjRef values worth displaying, batch-fetch the referenced objects:
 
 ```json
 {
-  "branch": "<branch>",
-  "ids": "2100500,2100501,2100502",
-  "attributes": "1000",
-  "inherited": true
+  "branchId": 2100347,
+  "objectIds": [2100500, 2100501, 2100502],
+  "languages": [201, 202],
+  "attributes": [1000]
 }
 ```
 
-Tool: `novadb_cms_get_objects`. Match `meta.id` to the ObjRef values.
+Tool: `object_get`. Match `meta.id` to the ObjRef values.
 
 ### 4. Present as table
 
@@ -77,25 +71,17 @@ Show results as a readable markdown table. Include ID, display name, and relevan
 
 ---
 
-## `novadb_index_search_objects` — Full Reference
+## `object_query` — Full Reference
 
 ```json
 {
-  "branch": "2100347",
-  "filter": {
-    "objectTypeIds": [10],
-    "searchPhrase": "name",
-    "filters": [
-      {
-        "attrId": 1001,
-        "langId": 0,
-        "variantId": 0,
-        "value": "ObjRef",
-        "compareOperator": 0
-      }
-    ]
-  },
-  "sortBy": [{ "sortBy": 3, "reverse": false }],
+  "branchId": 2100347,
+  "objectTypeId": 10,
+  "languages": [201, 202],
+  "searchPhrase": "name",
+  "searchAttributes": ["1000:201"],
+  "filters": ["1001:0:0:0:ObjRef"],
+  "attributes": [],
   "skip": 0,
   "take": 20
 }
@@ -105,39 +91,27 @@ Show results as a readable markdown table. Include ID, display name, and relevan
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `branch` | string | yes | **Numeric branch ID** (e.g. `"2100347"`). Never `"draft"` or `"branchDefault"`. |
-| `filter` | object | no | Filter criteria (see below) |
-| `sortBy` | array | no | Sort criteria (see below) |
-| `skip` | number | no | Offset for pagination (default: 0) |
-| `take` | number | no | Max results per page (default: 5) |
+| `branchId` | int | yes | Branch identifier |
+| `objectTypeId` | int | yes | typeRef to list (e.g. `10` for attributes) |
+| `languages` | int[] | yes | Languages for display names |
+| `searchPhrase` | string | no | Full-text / wildcard search query |
+| `searchAttributes` | string[] | no | Restrict phrase search to `attr:lang` pairs |
+| `filters` | string[] | no | Attribute-level filters (see below) |
+| `attributes` | int[] | no | Which attributes to load (empty → defaults) |
+| `skip` | int | no | Offset for pagination (default 0) |
+| `take` | int | no | Max results per page (default 20) |
 
-### Filter Object
+### Filter String Syntax
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `objectTypeIds` | number[] | typeRef values to filter by (e.g. `[0]` for object types, `[10]` for attributes) |
-| `searchPhrase` | string | Full-text search query |
-| `filters` | array | Attribute-level filters (see below) |
+Each filter is `"<attrId>:<langId>:<variantId>:<operator>:<value>"`.
 
-### Attribute Filter Structure
-
-```json
-{
-  "attrId": 1001,
-  "langId": 0,
-  "variantId": 0,
-  "value": "ObjRef",
-  "compareOperator": 0
-}
-```
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `attrId` | number | Attribute definition ID |
-| `langId` | number | Language ID (0 for language-independent, 201 for EN, 202 for DE) |
-| `variantId` | number | Variant ID (usually 0) |
-| `value` | string | Value to compare (always a string, even for numbers/booleans) |
-| `compareOperator` | number | Comparison operator (see table) |
+| Field | Description |
+|-------|-------------|
+| `attrId` | Attribute definition id |
+| `langId` | Language id (0 for language-independent, 201 for EN, 202 for DE) |
+| `variantId` | Variant id (usually 0) |
+| `operator` | Comparison operator (see table) |
+| `value` | String value to compare (booleans as `"true"` / `"false"`) |
 
 ### compareOperator Values
 
@@ -147,20 +121,8 @@ Show results as a readable markdown table. Include ID, display name, and relevan
 | 1 | NotEqual | Exclude specific values |
 | 2 | GreaterThan | Date/number comparisons |
 | 3 | LessThan | Date/number comparisons |
-| 4 | Like | Partial string matching |
-| 7 | ObjRefLookup | Find objects referencing a specific ID |
-
-### sortBy Values
-
-| Value | Field |
-|-------|-------|
-| 0 | Score (relevance) |
-| 1 | Object ID |
-| 3 | Display name |
-| 4 | Modified date |
-| 5 | Modified by |
-
-Add `"reverse": true` to any entry for descending order.
+| 4 | Like | Partial string matching (with wildcards) |
+| 7 | ObjRefLookup | Find objects referencing a specific id |
 
 ### Response
 
@@ -168,76 +130,73 @@ Add `"reverse": true` to any entry for descending order.
 {
   "objects": [
     {
-      "objectId": 2100500,
-      "displayName": "Company Name",
-      "typeRef": 10,
-      "modifiedBy": "admin",
-      "modified": "2025-01-15T10:30:00Z",
-      "deleted": false,
-      "hasDisplayName": true
+      "meta": { "id": 2100500, "typeRef": 10 },
+      "values": [
+        { "attribute": 1000, "language": 201, "value": "Company Name" }
+      ]
     }
-  ],
-  "more": true,
-  "changeTrackingVersion": 12345
+  ]
 }
 ```
 
-When `more: true`, increment `skip` by `take` for the next page.
+Pagination info is returned alongside (consult the result — page again with `skip += take` when more results remain).
 
 ---
 
-## `novadb_index_count_objects` — Reference
+## `object_count` — Reference
 
 ```json
 {
-  "branch": "2100347",
-  "filter": {
-    "objectTypeIds": [10],
-    "searchPhrase": "name"
-  }
+  "branchId": 2100347,
+  "objectTypeId": 10,
+  "searchPhrase": "name"
 }
 ```
 
-Same `branch` and `filter` parameters as `search_objects`. Returns `{ count }`.
+Same filter options as `object_query` (minus `attributes`, `skip`, `take`). Returns `{ count }`.
 
 ---
 
-## `novadb_index_object_occurrences` — Reference
+## `object_xmllinkcount` — Reference
 
 ```json
 {
-  "branch": "2100347",
-  "filter": { "objectTypeIds": [10] },
-  "getModifiedByOccurrences": true,
-  "getTypeRefOccurrences": true
+  "branchId": 2100347,
+  "objectIds": [2100500, 2100501]
 }
 ```
 
-Returns faceted counts — useful for understanding data distribution without fetching all objects.
+Returns `{ count }` of objects whose XML attributes reference the given ids. Useful pre-deletion check.
 
 ---
 
-## ObjRef Resolution via CMS
+## Faceted / Occurrence Queries
 
-When search results contain objects with ObjRef attributes you need to display:
+Not available in the current C# MCP. If you need counts per user / per type / per date bucket, run `object_count` once per filter value and aggregate client-side, or page through `object_query` results and aggregate.
 
-1. Fetch the full object: `novadb_cms_get_object` with `inherited: true`
-2. Collect ObjRef IDs from the values
-3. Batch-resolve: `novadb_cms_get_objects` with `ids` and `attributes: "1000"`
-4. Match `meta.id` to the ObjRef values and display names
+---
+
+## ObjRef Resolution
+
+When search results contain ObjRef attributes you need to display:
+
+1. Fetch the full object via `object_get` with appropriate `attributes`.
+2. Collect ObjRef IDs from the values.
+3. Batch-resolve via `object_get` with `attributes: [1000]`.
+4. Match `meta.id` to the ObjRef values and display names.
 
 ```json
 {
-  "branch": "<branchId>",
-  "ids": "2100500,2100501",
-  "attributes": "1000",
-  "inherited": true
+  "branchId": 2100347,
+  "objectIds": [2100500, 2100501],
+  "languages": [201, 202],
+  "attributes": [1000]
 }
 ```
 
 ### Binary References (BinRef)
 
-If an object contains BinRef attributes (images, documents), read Attr **11000** (identifier) and **11005** (extension) from the referenced binary object. To download → `get-file` with `name` = `<attr11000><attr11005>`.
+If an object contains BinRef attributes (images, documents), read Attr **11000** (identifier) and **11005** (extension) from the referenced binary object. To download → use `get-file` skill (currently unsupported in the C# MCP — listed for completeness).
 
 ---
 
@@ -245,17 +204,13 @@ If an object contains BinRef attributes (images, documents), read Attr **11000**
 
 To find object types by domain/theme, do NOT search object types directly — they have generic names. Instead:
 
-1. Search Application Areas: `objectTypeIds: [60]`, `searchPhrase: "<theme>"`
-2. Fetch the App Area with `novadb_cms_get_object` (include attr 6001)
-3. Extract type IDs from attribute 6001 values
-4. Fetch types with `novadb_cms_get_objects`
+1. `object_query` with `objectTypeId: 60`, `searchPhrase: "<theme>"`
+2. `object_get` on the App Area with `attributes: [6001]`
+3. Extract type IDs from 6001 values
+4. `objecttype_describe` for each
 
 ---
 
 ## Branch Parameter
 
-The Index API always requires a **numeric branch ID string**:
-- `"2100347"` — a specific branch
-- `"4"` — the Default branch (contains all system objects like branches, types)
-
-Never use `"draft"`, `"branchDefault"`, or other named identifiers with the Index API. Index results are scoped to the specified branch — objects from other branches will not appear.
+All object tools take `branchId` as an **int**. No named branch identifiers. Query results are scoped to the specified branch — objects from other branches will not appear.

@@ -1,11 +1,14 @@
 ---
 name: generate-code-for-types
-description: "Generate C# code for multiple or all object types in a branch."
+description: "[UNSUPPORTED in current MCP] Generate C# code for multiple or all object types in a branch."
 user-invocable: false
 allowed-tools: novadb_cms_get_code_generator_types
 ---
 
 # Generate Code for Types
+
+> ⚠️ **UNSUPPORTED IN THE CURRENT C# MCP.**
+> This skill relies on `novadb_cms_get_code_generator_types`, which is not exposed by the current NovaDB MCP (Noxum.Nova.AI.Mcp). Calling it will fail. Until code-generation tools are added back to the C# MCP, generate C# classes outside Claude. The content below is preserved for that future state; do not attempt to invoke.
 
 Generate C# code for multiple or all object types in a branch and save to disk. ONLY for multi-type code generation — NOT for single-type generation or any other operations.
 

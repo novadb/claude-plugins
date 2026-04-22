@@ -2,7 +2,7 @@
 name: link-form-to-type
 description: "Attach a form to an object type as create form or detail tab."
 user-invocable: false
-allowed-tools: novadb_cms_update_objects, novadb_cms_get_object
+allowed-tools: objecttype_describe, object_update
 ---
 
 # Link Form to Type
@@ -16,10 +16,12 @@ allowed-tools: novadb_cms_update_objects, novadb_cms_get_object
 
 Attach a form to an object type as either a **create form** (shown when creating new objects) or a **detail tab** (shown in the edit view).
 
+> **Atomicity caveat:** Creating a form and linking it to a type happen in two separate transactions on the new C# MCP. If the link step fails after a successful form creation, the form is still around — clean up or retry as needed.
+
 ## Tools Used
 
-- `novadb_cms_update_objects` — Set form reference on the type
-- `novadb_cms_get_object` — (detail role only) Read existing detail forms before appending
+- `object_update` — Set form reference on the type
+- `objecttype_describe` — (detail role only) Read the current list of detail forms before appending
 
 ## Two Roles
 
@@ -27,75 +29,63 @@ Attach a form to an object type as either a **create form** (shown when creating
 
 A type has a single create form. Setting it replaces any previous create form.
 
-Call `novadb_cms_update_objects`:
-
 ```json
 {
-  "branch": "<branch>",
-  "objects": [
-    {
-      "meta": { "id": "<typeId>", "typeRef": 0 },
-      "values": [
-        { "attribute": 5001, "language": 0, "variant": 0, "value": "<formId>" }
-      ]
-    }
-  ]
+  "branchId": 2100347,
+  "objectId": <typeId>,
+  "values": "[{\"attribute\":5001,\"language\":0,\"variant\":0,\"value\":<formId>}]"
 }
 ```
 
-- `typeRef: 0` = Object Type
-- `5001` = Create form (single ObjRef — just set it directly)
+Tool: `object_update`.
 
 ### Detail Tab (attr 5002)
 
 A type can have multiple detail forms (tabs). New forms are **appended** to the existing list.
 
-#### Step 1: Read Existing Detail Forms
-
-Call `novadb_cms_get_object` to fetch the type (branch, typeId, inherited=true). Extract all values with `attribute: 5002`, sort by `sortReverse` ascending, and collect their `value` (form IDs).
-
-#### Step 2: Append and Update
-
-Add the new form ID to the list. Rebuild ALL 5002 entries with correct `sortReverse` ordering.
-
-Call `novadb_cms_update_objects`:
+#### Step 1: Describe the Type
 
 ```json
 {
-  "branch": "<branch>",
-  "objects": [
-    {
-      "meta": { "id": "<typeId>", "typeRef": 0 },
-      "values": [
-        { "attribute": 5002, "language": 0, "variant": 0, "value": "<existingFormId1>", "sortReverse": 0 },
-        { "attribute": 5002, "language": 0, "variant": 0, "value": "<existingFormId2>", "sortReverse": 1 },
-        { "attribute": 5002, "language": 0, "variant": 0, "value": "<newFormId>", "sortReverse": 2 }
-      ]
-    }
-  ]
+  "branchId": 2100347,
+  "objectTypeId": <typeId>,
+  "languages": [201, 202]
 }
 ```
 
-- `5002` = Detail forms (multi-value ObjRef with `sortReverse`)
-- Each form is a separate CmsValue entry — never pass an array as the value
+Tool: `objecttype_describe`. Extract the list of detail forms from the result.
+
+#### Step 2: Append and Update
+
+Add the new form id to the list, preserving existing order. Send the full list via `object_update`:
+
+```json
+{
+  "branchId": 2100347,
+  "objectId": <typeId>,
+  "values": "[{\"attribute\":5002,\"language\":0,\"variant\":0,\"value\":[<existingFormId1>,<existingFormId2>,<newFormId>]}]"
+}
+```
+
+Array order inside `value` = tab order (left-to-right).
 
 ## Response
 
-Returns `{ updatedObjects, createdValues, transaction }`.
+Returns `UpdateObjectResult` with `objectId`, `updatedObjects`, `createdValues`, `transaction`.
 
 ## Common Patterns
 
 ### Multi-Value ObjRef (Detail Forms)
-Detail forms (attribute 5002) use multi-value ObjRef pattern with sortReverse:
-- ✓ `{ attr: 5002, value: formId1, sortReverse: 0 }, { attr: 5002, value: formId2, sortReverse: 1 }`
-- ✗ `{ attr: 5002, value: [formId1, formId2] }`
+Either form works:
+- ✓ Array: `{"attribute":5002,"value":[formId1,formId2]}`
+- ✓ `sortReverse` entries: `{"attribute":5002,"value":formId1,"sortReverse":0}`
 
 Create form (attribute 5001) is single-value — no sortReverse needed.
 
 ### Read-Modify-Write Pattern (Detail Forms)
-1. Read current type to get existing detail forms from attribute 5002
-2. Append new form with next sortReverse value
-3. Send complete form list back
+1. Describe the type to get current detail forms
+2. Append the new form id to the list
+3. Send complete form list via `object_update`
 
-### API Response (PATCH/Update)
-Returns `{ transaction }`. Fetch the object type afterward to confirm changes.
+### API Response (Update)
+Returns `{ transaction }`. Describe the type afterward to confirm.

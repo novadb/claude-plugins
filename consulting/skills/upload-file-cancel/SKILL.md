@@ -1,11 +1,14 @@
 ---
 name: upload-file-cancel
-description: "Cancel an in-progress chunked file upload."
+description: "[UNSUPPORTED in current MCP] Cancel an in-progress chunked file upload."
 user-invocable: false
 allowed-tools: novadb_cms_upload_file_cancel
 ---
 
 # Upload File Cancel
+
+> ⚠️ **UNSUPPORTED IN THE CURRENT C# MCP.**
+> This skill relies on `novadb_cms_upload_file_cancel`, which is not exposed by the current NovaDB MCP (Noxum.Nova.AI.Mcp). Calling it will fail. The content below is preserved for the day chunked file upload support is added back; do not attempt to invoke.
 
 Cancel an in-progress chunked file upload and discard all uploaded data.
 

@@ -2,7 +2,7 @@
 name: get-comments
 description: "List comments with optional filters and pagination."
 user-invocable: false
-allowed-tools: novadb_cms_get_comments
+allowed-tools: comment_query
 ---
 
 # Get Comments
@@ -12,6 +12,7 @@ allowed-tools: novadb_cms_get_comments
 **This skill ONLY handles:** Listing and filtering comments with pagination support.
 
 **For fetching a single comment by ID** → use `get-comment`
+**For full-text search across comments** → use the `comment_search` tool directly
 
 List comments with optional filters. Results are paginated.
 
@@ -19,41 +20,40 @@ List comments with optional filters. Results are paginated.
 
 ## Tool
 
-`novadb_cms_get_comments`
+`comment_query`
 
 ## Parameters
 
 ```json
 {
-  "branchRef": 2100347,
-  "objectRef": 12345,
+  "branchId": 2100347,
+  "objectId": 12345,
   "user": "jdoe",
-  "isDeleted": false,
-  "take": 10
+  "take": 10,
+  "continueToken": "opaque-token"
 }
 ```
 
-- `branchRef` — (optional) Filter by branch ID
-- `objectRef` — (optional) Filter by object ID
+- `branchId` — (optional) Filter by branch ID (int)
+- `objectId` — (optional) Filter by object ID (int)
 - `user` — (optional) Filter by comment author
-- `isDeleted` — (optional) Filter by deleted status
-- `continue` — (optional) Opaque continuation token from a previous response for pagination. Omit for first page.
-- `take` — (optional) Page size (default: 5)
+- `take` — (optional) Page size (default: 50)
+- `continueToken` — (optional) Opaque continuation token from a previous response
 
 All parameters are optional. Without filters, returns all comments.
 
 ## Pagination
 
-The response includes a `continue` token when more pages exist. Pass this token as the `continue` parameter in the next call to fetch the next page.
+The response includes a `continueToken` when more pages exist. Pass this token in the next call to fetch the next page.
 
 ## Response
 
-Returns an array of comment objects, each with id, body, branch reference, object reference, author, timestamps, and deleted status.
+Returns `CmsCommentList` with `comments[]` (id, HTML body, branch/object refs, author, timestamps, deleted status) and `continueToken`.
 
 ## Common Patterns
 
 ### Pagination
-Uses opaque `continue` token for next page. Pass the token from the previous response to get the next page.
+Uses opaque `continueToken` for next page.
 
-### API Response (GET Comments)
-Returns array of comment objects with pagination. Check for `continue` token in response for more results.
+### API Response (comment_query)
+Returns array of comment objects with pagination. Check for `continueToken` in response for more results.

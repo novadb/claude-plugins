@@ -1,40 +1,46 @@
 ---
 name: get-branch
-description: "Fetch a single branch by ID with resolved references."
+description: "Fetch a single branch (work package) by ID."
 user-invocable: false
-allowed-tools: novadb_cms_get_branch, novadb_cms_get_objects
+allowed-tools: work_package_query
 ---
 
 # Get Branch
 
-Fetch a single branch by ID with human-readable ObjRef resolution.
+Fetch a single branch (work package) with its attributes.
 
 ## Scope
 
-**This skill ONLY handles:** Fetching a single branch by its ID with human-readable ObjRef resolution.
+**This skill ONLY handles:** Fetching a single branch by its ID.
 
 **For listing all branches** → use `list-branches`
 **For searching/filtering branches** → use `find-branches`
 
 > **Note:** NovaDB object IDs start at 2²¹ (2,097,152). All IDs in examples below are samples — always use real IDs from your system.
+>
+> The new C# MCP has no dedicated single-branch getter. Use `work_package_query` with a filter on the branch id.
 
 ## Steps
 
-### 1. Fetch the branch
-
-Call `novadb_cms_get_branch`:
+### 1. Query by branch id
 
 ```json
 {
-  "id": "2100347"
+  "languages": [201, 202],
+  "filters": ["1:0:0:0:2100347"],
+  "take": 1
 }
 ```
 
-Returns a `CmsObject` with `meta` and `values`.
+Tool: `work_package_query`.
+
+- `filters` — an array of `"<attrId>:<lang>:<variant>:<op>:<value>"` strings. Attribute `1` is the built-in object id; use it to pin to a single branch.
+- `languages` — load display names in the requested languages.
+- Omit `attributes` to use the tool defaults (Name, ParentBranch, BranchType, WorkflowState, DueDate, BranchAssignedTo).
 
 ### 2. Extract values
 
-Parse the `values` array using these attribute IDs:
+Parse `values` using these attribute IDs:
 
 | Attribute | ID | Language | Description |
 |-----------|------|----------|-------------|
@@ -44,28 +50,13 @@ Parse the `values` array using these attribute IDs:
 | Type | 4001 | 0 | Branch type ID (ObjRef) |
 | Workflow state | 4002 | 0 | State ID (ObjRef) |
 | Due date | 4003 | 0 | ISO date string |
-| Assigned to | 4004 | 0 | Username string |
+| Assigned to | 4004 | 0 | Username |
 
-### 3. Resolve ObjRef names (recommended)
+### 3. Resolve ObjRef names (optional)
 
-Attributes 4000, 4001, and 4002 contain numeric object IDs. To get their display names, collect all non-null ObjRef values and fetch them in a single call:
-
-Call `novadb_cms_get_objects`:
-
-```json
-{
-  "branch": "branchDefault",
-  "ids": "123,456,789",
-  "attributes": "1000",
-  "inherited": true
-}
-```
-
-For each returned object, find the value with `attribute: 1000`, `language: 201` (English) to get the display name.
+Attributes 4000, 4001, 4002 are ObjRefs. `work_package_query` already resolves parent-branch display names when present in the result set; otherwise fetch the referenced objects via `object_get`.
 
 ### 4. Present enriched result
-
-Combine the branch data with resolved names:
 
 ```
 Branch: My Feature Branch (ID: 2100500)
@@ -79,7 +70,7 @@ Assigned to: jdoe
 ## Common Patterns
 
 ### ObjRef Resolution
-ObjRef values (parent, type, state, assignee) are numeric IDs. Resolve them to display names using `novadb_cms_get_objects` with `inherited: true`.
+Resolve numeric ObjRef values via `object_get` (attribute 1000 for display names).
 
-### API Response (GET)
-Returns a `CmsObject` with `meta` and `values` array containing branch properties.
+### API Response (Work Package Query)
+Returns `ObjectQueryResult` with `objects[]` and pagination info.

@@ -2,7 +2,7 @@
 name: get-jobs
 description: "List jobs for a branch with optional filters and pagination."
 user-invocable: false
-allowed-tools: novadb_cms_get_jobs
+allowed-tools: job_query
 ---
 
 # Get Jobs
@@ -19,7 +19,7 @@ List jobs for a branch with optional filters and pagination.
 
 ## Tools
 
-1. `novadb_cms_get_jobs` — List jobs
+1. `job_query` — List jobs
 
 ## Parameters
 
@@ -32,20 +32,20 @@ List jobs for a branch with optional filters and pagination.
   "createdBy": "jdoe",
   "isDeleted": false,
   "take": 10,
-  "continue": "opaque-token"
+  "continueToken": "opaque-token"
 }
 ```
 
-- `branchId` — Branch ID (number, required)
-- `definitionRef` — Filter by job definition ID (optional)
-- `state` — Filter by state (optional, see table below)
-- `triggerRef` — Filter by trigger ID (optional)
+- `branchId` — Branch ID (int, optional — recommended)
+- `definitionRef` — Filter by job definition ID (optional, int)
+- `state` — Filter by state (optional, 0–5)
+- `triggerRef` — Filter by trigger ID (optional, int)
 - `createdBy` — Filter by creator username (optional)
 - `isDeleted` — Filter by deleted status (optional)
-- `take` — Page size, default 5 (optional)
-- `continue` — Opaque continuation token from previous response for pagination (optional, omit for first page)
+- `take` — Page size (default 50)
+- `continueToken` — Opaque continuation token from the previous response (optional)
 
-## Job States
+## Job States (read-side)
 
 | Value | State |
 |-------|-------|
@@ -53,21 +53,21 @@ List jobs for a branch with optional filters and pagination.
 | 1 | Running |
 | 2 | Succeeded |
 | 3 | Error |
-| 4 | KillRequested |
-| 5 | RestartRequested |
+| 4 | KillRequest |
+| 5 | RestartRequest |
 
 ## Pagination
 
-The response includes a `continue` token when more pages exist. Pass this token in the next call to fetch the next page. Omit `continue` for the first page.
+The response includes a `continueToken` when more pages exist. Pass this in the next call. Omit for the first page.
 
 ## Response
 
-Returns `{ jobs: [...], continue?: "token" }`.
+Returns `CmsJobList` with `jobs[]` and optional `continueToken`.
 
 ## Common Patterns
 
 ### Pagination
-Uses opaque `continue` token for next page. Pass the token from the previous response to get the next page.
+Uses opaque `continueToken` for the next page.
 
 ### API Response (GET Jobs)
-Returns `{ jobs: [...], continue?: "token" }`. Check for `continue` token for more results.
+Returns `{ jobs: [...], continueToken?: "token" }`.

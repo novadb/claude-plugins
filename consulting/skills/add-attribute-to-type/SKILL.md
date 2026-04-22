@@ -2,7 +2,7 @@
 name: add-attribute-to-type
 description: "Create a new attribute and add it to all forms of an existing type."
 user-invocable: false
-allowed-tools: novadb_cms_get_object, novadb_cms_create_objects, novadb_cms_update_objects
+allowed-tools: objecttype_describe, object_get, object_create, object_update
 ---
 
 # Add Attribute to Type
@@ -16,50 +16,48 @@ Create a new attribute and add it to all forms of an existing type. ONLY for add
 **For creating a standalone attribute** → use `create-attribute`
 **For reading a type's current attributes** → use `get-object-type`
 
+> **Atomicity caveat:** The new C# MCP creates/updates **one object per call**. The attribute creation and each form update run in separate transactions. If one step fails, earlier steps remain committed. Plan accordingly.
+
 ## Tools Used
 
-- `novadb_cms_get_object` — Fetch type and forms
-- `novadb_cms_create_objects` — Create the attribute definition
-- `novadb_cms_update_objects` — Update forms with the new field
+- `objecttype_describe` — Read the target type's form assignments (primary) and current attribute list
+- `object_get` — Fetch each form to read existing fields
+- `object_create` — Create the new attribute definition
+- `object_update` — Update each form with the new field list
 
 ## Workflow (5 Steps)
 
-### Step 1: Fetch the Object Type
-
-Call `novadb_cms_get_object` with the type ID to read its current form assignments.
-
-### Step 2: Find the Create Form
-
-Extract the create form ID from attribute **5001** in the type's values. If no create form exists, stop with an error — the type must have a create form before attributes can be added.
-
-Also extract detail form IDs from attribute **5002** for later use.
-
-### Step 3: Read Existing Form Fields
-
-Call `novadb_cms_get_object` with the create form ID. Extract the existing field IDs from attribute **5053** (form content). Collect all values where `attribute === 5053` and sort by `sortReverse`.
-
-### Step 4: Create the Attribute Definition
-
-Call `novadb_cms_create_objects` with one attribute definition object:
+### Step 1: Describe the Object Type
 
 ```json
 {
-  "branch": "<branch>",
-  "objects": [
-    {
-      "meta": { "typeRef": 10, "apiIdentifier": "<optional-api-id>" },
-      "values": [
-        { "attribute": 1000, "language": 201, "variant": 0, "value": "Attr Name EN" },
-        { "attribute": 1000, "language": 202, "variant": 0, "value": "Attr Name DE" },
-        { "attribute": 1001, "language": 0, "variant": 0, "value": "String" }
-      ]
-    }
-  ]
+  "branchId": 2100347,
+  "objectTypeId": <typeId>,
+  "languages": [201, 202]
 }
 ```
 
-- `typeRef: 10` = Attribute Definition
-- Response: `{ createdObjectIds: [<newAttrDefId>] }`
+Tool: `objecttype_describe`. The response lists the default create form, all detail forms, and every attribute currently wired in — use this instead of reading raw attributes 5001/5002.
+
+### Step 2: Identify Forms to Update
+
+Collect the create form id and all detail form ids from the describe result. If the type has no create form, stop with an error — the type must have a create form before attributes can be added.
+
+### Step 3: Read Existing Form Fields
+
+For each form id, call `object_get` and extract existing field IDs from attribute **5053** (form content). Sort by `sortReverse` ascending. Deduplicate across forms.
+
+### Step 4: Create the Attribute Definition
+
+```json
+{
+  "branchId": 2100347,
+  "objectTypeId": 10,
+  "values": "[{\"attribute\":1000,\"language\":201,\"variant\":0,\"value\":\"Attr Name EN\"},{\"attribute\":1000,\"language\":202,\"variant\":0,\"value\":\"Attr Name DE\"},{\"attribute\":1001,\"language\":0,\"variant\":0,\"value\":\"String\"}]"
+}
+```
+
+Tool: `object_create`. Response: `createdObjectId` = the new attribute definition id.
 
 #### Attribute Definition Values
 
@@ -70,57 +68,47 @@ Call `novadb_cms_create_objects` with one attribute definition object:
 | 1006 | Required/Predefined | Boolean | Whether values are required |
 | 1010 | Has local values | Boolean | |
 | 1014 | Max values | Integer | 1=single-value, 0=multi-value |
-| 1015 | Allowed types | ObjRef | For ObjRef data type — pass as array value |
+| 1015 | Allowed types | ObjRef | For ObjRef data type — multi-value |
 
 #### Valid Data Types
 
 `String`, `TextRef`, `TextRef.JavaScript`, `TextRef.CSS`, `XmlRef.SimpleHtml`, `XmlRef.VisualDocument`, `Integer`, `Decimal`, `Float`, `Boolean`, `DateTime`, `DateTime.Date`, `ObjRef`, `BinRef`, `BinRef.Icon`, `BinRef.Thumbnail`, `String.DataType`, `String.InheritanceBehavior`, `String.UserName`, `String.RGBColor`
 
-### Step 5: Update All Forms
+### Step 5: Update Each Form
 
-Update the **create form** by replacing all form content (5053) entries with the existing fields plus the new one:
+For each form identified in step 2, call `object_update` replacing the 5053 list with existing fields + the new one:
 
 ```json
 {
-  "branch": "<branch>",
-  "objects": [
-    {
-      "meta": { "id": "<formId>", "typeRef": 50 },
-      "values": [
-        { "attribute": 5053, "language": 0, "variant": 0, "value": "<existingId1>", "sortReverse": 0 },
-        { "attribute": 5053, "language": 0, "variant": 0, "value": "<existingId2>", "sortReverse": 1 },
-        { "attribute": 5053, "language": 0, "variant": 0, "value": "<newAttrDefId>", "sortReverse": 2 }
-      ]
-    }
-  ]
+  "branchId": 2100347,
+  "objectId": <formId>,
+  "values": "[{\"attribute\":5053,\"language\":0,\"variant\":0,\"value\":[<existingId1>,<existingId2>,<newAttrDefId>]}]"
 }
 ```
 
-**CRITICAL**: Include ALL existing fields plus the new one. Each field is a separate CmsValue entry with incrementing `sortReverse` (0, 1, 2, ...). Never pass an array as the value.
-
-Then repeat for each **detail form** (from attribute 5002) that differs from the create form — fetch it, read its existing fields, and append the new attribute.
+The MCP auto-expands the array into ordered `sortReverse` entries.
 
 ## Result
 
-Fetch the newly created attribute definition with `novadb_cms_get_object` and return it to the user along with the form ID it was added to.
+Call `objecttype_describe` once more to confirm the attribute is wired through all forms. Return the new attribute id and the updated form ids to the user.
 
 ## Common Patterns
 
-### CmsValue Format
+### CmsValue Format (inside the JSON string)
 Every value entry follows: `{ attribute, language, variant, value, sortReverse? }`
 - `language`: 201=EN, 202=DE, 0=language-independent
 - `variant`: 0=default
-- `sortReverse`: for multi-value ordering (0, 1, 2, ...)
 
 ### Multi-Value ObjRef (Form Fields)
-Form content (attribute 5053) uses individual value entries, NOT arrays:
-- `{ attr: 5053, value: fieldId1, sortReverse: 0 }, { attr: 5053, value: fieldId2, sortReverse: 1 }`
-- `{ attr: 5053, value: [fieldId1, fieldId2] }`
+Either form works:
+- ✓ Array: `{"attribute":5053,"value":[fieldId1,fieldId2]}` (array order = display order)
+- ✓ `sortReverse` entries: `{"attribute":5053,"value":fieldId1,"sortReverse":0}`
 
 ### Read-Modify-Write Pattern
-1. Read current form to get existing fields from attribute 5053
-2. Append new attribute with next sortReverse value
-3. Send complete field list back
+1. Describe the type to get forms
+2. Read each form's current fields (attr 5053)
+3. Create the new attribute
+4. Send complete field list (existing + new) to each form via `object_update`
 
-### API Response (POST/Create)
-Returns `{ transaction, createdObjectIds: [id] }`. Use the ID to fetch the full attribute.
+### API Response (Create)
+Returns `{ createdObjectId, transaction }`.

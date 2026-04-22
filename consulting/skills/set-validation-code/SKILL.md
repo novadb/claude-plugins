@@ -2,7 +2,7 @@
 name: set-validation-code
 description: "Set JavaScript validation code on an attribute definition."
 user-invocable: false
-allowed-tools: novadb_cms_update_objects
+allowed-tools: object_update
 ---
 
 # Set Validation Code
@@ -20,31 +20,23 @@ Set JavaScript validation code on an attribute definition. The script validates 
 
 ## Tool
 
-`novadb_cms_update_objects`
+`object_update`
 
 ## Parameters
 
 ```json
 {
-  "branch": "<branchId>",
-  "objects": [
-    {
-      "meta": { "id": 12345, "typeRef": 10 },
-      "values": [
-        { "attribute": 1008, "language": 0, "variant": 0, "value": "if (value && !/^[A-Z]{2}$/.test(value)) { 'Must be exactly 2 capital letters'; }" }
-      ]
-    }
-  ],
+  "branchId": 2100347,
+  "objectId": 12345,
+  "values": "[{\"attribute\":1008,\"language\":0,\"variant\":0,\"value\":\"if (value && !/^[A-Z]{2}$/.test(value)) { 'Must be exactly 2 capital letters'; }\"}]",
   "comment": "Added country code validation"
 }
 ```
 
-- `branch` — Numeric branch ID (int32). Always use the branch the user is currently working on.
-- `objects[0].meta.id` — Attribute definition ID
-- `objects[0].meta.typeRef` — Always `10`
-- `objects[0].values[0].attribute` — Always `1008` (validation code)
-- `objects[0].values[0].value` — JavaScript validation script
-- `comment` / `username` — (optional) Audit trail
+- `branchId` — Numeric branch ID (int).
+- `objectId` — Attribute definition ID.
+- `values` — JSON-encoded **string** of a CmsValue array. The single entry sets attribute 1008.
+- `comment` — (optional) Audit trail.
 
 ## Validation Script Pattern
 
@@ -78,12 +70,12 @@ if (typeof value === 'string' && value.trim() === '') {
 
 ## Response
 
-Returns `{ updatedObjects, createdValues, transaction }`.
+Returns `UpdateObjectResult` with `objectId`, `updatedObjects`, `createdValues`, `transaction`.
 
 ## Common Patterns
 
 ### CmsValue Format
-Every value entry follows: `{ attribute, language, variant, value }`
+Every value entry in the JSON string follows: `{ attribute, language, variant, value }`
 - `language`: 0=language-independent (always 0 for code attributes)
 - `variant`: 0=default
 

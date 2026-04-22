@@ -2,7 +2,7 @@
 name: nova-schema
 description: "Meta-object CRUD reference — type catalog, schema discovery, create/update/delete workflows, impact analysis, and safety patterns for all objects with typeRef < 8192."
 user-invocable: false
-allowed-tools: novadb_cms_get_object, novadb_cms_get_objects, novadb_cms_get_typed_objects, novadb_cms_create_objects, novadb_cms_update_objects, novadb_cms_delete_objects, novadb_index_search_objects, novadb_index_count_objects, novadb_index_object_occurrences, novadb_index_object_xml_link_count, novadb_index_suggestions
+allowed-tools: object_get, object_query, object_create, object_update, object_delete, object_count, object_xmllinkcount, objecttype_describe, objecttype_query
 ---
 
 # NovaDB Schema/Meta-Object Management Reference
@@ -102,9 +102,9 @@ All meta/schema types have `typeRef < 8192`. Here is the complete catalog:
 | Language Dependent | 1017 | Boolean | Separate values per language |
 | Required | 1018 | Boolean | Must have a value |
 | Read Only | 1019 | Boolean | Cannot be edited by users |
-| Validation Code | 1030 | TextRef.JavaScript | Client-side validation |
-| Virtualization Code | 1031 | TextRef.JavaScript | Computed/virtual value |
-| API Identifier | 1050 | String | Programmatic identifier |
+| Validation Code | 1008 | TextRef.JavaScript | Client-side validation |
+| Virtualization Code | 1009 | TextRef.JavaScript | Computed/virtual value |
+| API Identifier | 1021 | String | Programmatic identifier |
 
 ### Form (typeRef=50)
 
@@ -112,8 +112,9 @@ All meta/schema types have `typeRef < 8192`. Here is the complete catalog:
 |-----------|------|------|---------|
 | Name | 1000 | String | Display name (language-dependent) |
 | Form Fields | 5053 | ObjRef (multi) | Ordered list of attribute definitions shown on this form |
-| Conditional Visibility | 5054 | TextRef.JavaScript | JS code controlling field visibility |
-| Tab Label | 5055 | String | Label when used as detail tab |
+| Condition attribute | 5054 | ObjRef | Controls conditional visibility |
+| Condition refs | 5055 | ObjRef (multi) | Values that trigger visibility |
+| Is single editor | 5056 | Boolean | Single-editor mode |
 
 ### Application Area (typeRef=60)
 
@@ -127,192 +128,102 @@ All meta/schema types have `typeRef < 8192`. Here is the complete catalog:
 
 ## Schema Discovery Workflow
 
-### Discovering Meta-Object Structure
+Before modifying any meta-object, discover its structure.
 
-Before modifying any meta-object, discover its structure:
-
-**Step 1: Identify the meta-type**
-
-Determine the `typeRef` of what you want to work with (see Meta-Type Catalog above).
-
-**Step 2: List existing instances**
+### For an Object Type → prefer `objecttype_describe`
 
 ```json
 {
-  "branch": "<branch>",
-  "type": "<typeRef>",
-  "inherited": true,
-  "attributes": "1000",
+  "branchId": 2100347,
+  "objectTypeId": <typeId>,
+  "languages": [201, 202]
+}
+```
+
+Returns the full structured schema in one call.
+
+### For other meta-types → use `object_query` + `object_get`
+
+List instances:
+
+```json
+{
+  "branchId": 2100347,
+  "objectTypeId": <metaTypeRef>,
+  "languages": [201, 202],
   "take": 20
 }
 ```
 
-Tool: `novadb_cms_get_typed_objects`
+Tool: `object_query`.
 
-**Step 3: Inspect a specific instance**
+Inspect one instance via `object_get` with the id.
 
-```json
-{
-  "branch": "<branch>",
-  "id": "<objectId>",
-  "inherited": true
-}
-```
-
-Tool: `novadb_cms_get_object`
-
-### Finding Which Types Use an Attribute
-
-To find which object types reference a given attribute definition:
-
-1. List all forms (typeRef=50) and fetch their field lists (attr 5053)
-2. Check which forms include the attribute ID
-3. Find which types reference those forms via attrs 5001/5002
-
-Or use the Index API:
+### Finding which types/forms use an attribute
 
 ```json
 {
-  "branch": "<numericBranchId>",
-  "filter": {
-    "objectTypeIds": [50],
-    "filters": [{
-      "attrId": 5053,
-      "value": "<attrDefId>",
-      "compareOperator": 0
-    }]
-  },
+  "branchId": 2100347,
+  "objectTypeId": 50,
+  "languages": [201, 202],
+  "filters": ["5053:0:0:0:<attrDefId>"],
   "take": 50
 }
 ```
 
-Tool: `novadb_index_search_objects`
-
-### Finding Forms for an Object Type
-
-```json
-{
-  "branch": "<branch>",
-  "id": "<typeId>",
-  "inherited": true,
-  "attributes": "1000,5001,5002"
-}
-```
-
-Tool: `novadb_cms_get_object`
-
-Extract form IDs from attributes 5001 (create form) and 5002 (detail forms).
+Tool: `object_query`. Returns all forms that list the attribute. Then for each form, query which types reference it on 5001/5002.
 
 ---
 
 ## Impact Analysis Workflows
 
-### Before Modifying an Attribute Definition
+### Before modifying an Attribute Definition
 
-1. **Find all forms using this attribute:**
+1. Find all forms using the attribute (see above).
+2. For each form, find all types that reference it via 5001 or 5002 (`object_query` with `"5001:0:0:0:<formId>"` / `"5002:0:0:0:<formId>"`).
+3. Count data objects of affected types with `object_count` — one call per type id.
+4. Report to user: affected forms, types, and data object counts before proceeding.
 
-```json
-{
-  "branch": "<numericBranchId>",
-  "filter": {
-    "objectTypeIds": [50],
-    "filters": [{
-      "attrId": 5053,
-      "value": "<attrDefId>",
-      "compareOperator": 0
-    }]
-  },
-  "take": 50
-}
-```
+### Before deleting a Schema Object
 
-Tool: `novadb_index_search_objects`
-
-2. **Find all object types using those forms:**
-
-For each form found, search which types reference it via attrs 5001 or 5002.
-
-3. **Count data objects of affected types:**
-
-```json
-{
-  "branch": "<numericBranchId>",
-  "filter": {
-    "objectTypeIds": [<affectedTypeId1>, <affectedTypeId2>]
-  }
-}
-```
-
-Tool: `novadb_index_count_objects`
-
-4. **Report to user:** Show the list of affected forms, types, and data object counts before proceeding.
-
-### Before Deleting a Schema Object
-
-1. **Check XML references:**
-
-```json
-{
-  "branch": "<numericBranchId>",
-  "objectIds": [<objectId>]
-}
-```
-
-Tool: `novadb_index_object_xml_link_count`
-
-2. **Type-specific checks:**
-   - **Deleting an Object Type (0):** Count data objects of this type. Check forms referencing this type.
-   - **Deleting an Attribute Definition (10):** Check which forms include this attribute.
-   - **Deleting a Form (50):** Check which types reference this form via 5001/5002.
-   - **Deleting an Application Area (60):** List all types in this area (attr 6001).
-
-3. **Report all dependencies to the user and get explicit confirmation.**
+1. Check XML references via `object_xmllinkcount`:
+   ```json
+   { "branchId": 2100347, "objectIds": [<objectId>] }
+   ```
+2. Type-specific checks:
+   - **Object Type (0):** Count data objects of this type. Check forms referencing this type.
+   - **Attribute Definition (10):** Find forms listing it in 5053.
+   - **Form (50):** Find types referencing it via 5001/5002.
+   - **Application Area (60):** List all types in 6001.
+3. Report all dependencies and get explicit confirmation.
 
 ---
 
 ## Create Workflow
 
-### 1. Verify the meta-type exists
+### 1. Verify the meta-type
 
 Confirm the target `typeRef` is valid and < 8192.
 
-### 2. Build the values array
-
-Each value is a `CmsValue` entry. For language-dependent attributes, send one entry per language. For multi-value attributes, send one entry per value with `sortReverse` ordering.
+### 2. Build the values payload (JSON-encoded string)
 
 ```json
 {
-  "branch": "<branch>",
-  "objects": [{
-    "meta": { "typeRef": <metaTypeRef> },
-    "values": [
-      { "attribute": 1000, "language": 201, "variant": 0, "value": "Name EN" },
-      { "attribute": 1000, "language": 202, "variant": 0, "value": "Name DE" },
-      { "attribute": <attrId>, "language": 0, "variant": 0, "value": "<value>" }
-    ]
-  }]
+  "branchId": 2100347,
+  "objectTypeId": <metaTypeRef>,
+  "values": "[{\"attribute\":1000,\"language\":201,\"variant\":0,\"value\":\"Name EN\"},{\"attribute\":1000,\"language\":202,\"variant\":0,\"value\":\"Name DE\"},{\"attribute\":<attrId>,\"language\":0,\"variant\":0,\"value\":\"<value>\"}]"
 }
 ```
 
-Tool: `novadb_cms_create_objects`
+Tool: `object_create`. Response: `{ createdObjectId, transaction }`.
 
-### 3. Show the user what will be created and get confirmation
+### 3. Confirm with user and execute
 
-Display: typeRef name, all values, expected impact. Wait for user approval.
+Show the user what will be created, wait for approval, then call.
 
-### 4. Execute and verify
+### 4. Verify
 
-After creation, fetch the new object and show the result:
-
-```json
-{
-  "branch": "<branch>",
-  "id": "<newId>",
-  "inherited": true
-}
-```
-
-Tool: `novadb_cms_get_object`
+`object_get` (or `objecttype_describe` for a new type) with the new id.
 
 ---
 
@@ -320,63 +231,37 @@ Tool: `novadb_cms_get_object`
 
 ### 1. Read the current state
 
-```json
-{
-  "branch": "<branch>",
-  "id": "<objectId>",
-  "inherited": true
-}
-```
+- For object types: `objecttype_describe`.
+- For other meta-objects: `object_get`.
 
-Tool: `novadb_cms_get_object`
+### 2. Verify typeRef < 8192 and ID >= 500
 
-### 2. Verify typeRef < 8192
+Refuse if either check fails.
 
-Check the object's `meta.typeRef`. If >= 8192, refuse the operation and direct the user to the nova-objects agent.
+### 3. Run impact analysis
 
-### 3. Verify ID >= 500
+See Impact Analysis Workflows.
 
-If the object ID < 500, refuse the operation — these are core system objects.
+### 4. Merge changes
 
-### 4. Run impact analysis
+- **Single-value attributes:** Can be sent in isolation (read-then-merge).
+- **Multi-value attributes (1004=true):** Must send the COMPLETE value set — prefer array-in-value.
 
-For attribute definitions and forms, check what depends on this object (see Impact Analysis Workflows above).
+### 5. Show changes and get confirmation
 
-### 5. Merge changes
+Display: current values vs. new values, affected dependents.
 
-- **Single-value attributes:** Can be sent in isolation.
-- **Multi-value attributes (1004=true):** Must send the COMPLETE value set. Omitted entries are deleted.
-
-### Multi-Value Safety Pattern
-
-```
-1. Read the object → extract all values for the multi-value attribute
-2. Merge: add/remove/reorder values as needed
-3. Rebuild sortReverse (0, 1, 2, ...)
-4. Send the complete set in the update
-```
-
-### 6. Show changes and get confirmation
-
-Display: current values vs. new values, affected dependents. Wait for user approval.
-
-### 7. Execute and verify
+### 6. Execute
 
 ```json
 {
-  "branch": "<branch>",
-  "objects": [{
-    "meta": { "id": <objectId>, "typeRef": <typeRef> },
-    "values": [
-      { "attribute": <attrId>, "language": 0, "variant": 0, "value": "<newValue>" }
-    ]
-  }]
+  "branchId": 2100347,
+  "objectId": <objectId>,
+  "values": "[{\"attribute\":<attrId>,\"language\":0,\"variant\":0,\"value\":\"<newValue>\"}]"
 }
 ```
 
-Tool: `novadb_cms_update_objects`
-
-Re-read and show the result to the user.
+Tool: `object_update`. Re-read the object and show the result.
 
 ---
 
@@ -384,43 +269,31 @@ Re-read and show the result to the user.
 
 ### 1. Read the target object
 
-Fetch and verify: `typeRef < 8192`, `ID >= 500`.
+Fetch and verify `typeRef < 8192`, `ID >= 500`.
 
-### 2. Run impact analysis
+### 2. Impact analysis + XML refs
 
-See "Before Deleting a Schema Object" in Impact Analysis Workflows.
+See above. Use `object_xmllinkcount`.
 
-### 3. Check XML references
+### 3. Show full impact report and get confirmation
 
-```json
-{
-  "branch": "<numericBranchId>",
-  "objectIds": [<objectId>]
-}
-```
+Only proceed with explicit approval.
 
-Tool: `novadb_index_object_xml_link_count`
-
-### 4. Show full impact report and get confirmation
-
-Display: object name, type, ID, all dependencies, reference counts. Only proceed with explicit user approval.
-
-### 5. Delete (one at a time)
+### 4. Delete (one at a time)
 
 ```json
 {
-  "branch": "<branch>",
-  "objectIds": ["<objectId>"]
+  "branchId": 2100347,
+  "objectIds": [<objectId>],
+  "comment": "reason"
 }
 ```
 
-Tool: `novadb_cms_delete_objects`
+Tool: `object_delete`. Maximum 1 schema object per call.
 
-**Maximum 1 object per delete call.** Each deletion must be individually confirmed.
+### 5. Verify
 
-### 6. Verify
-
-Confirm the object is deleted.
+Query for the object with `isDeleted` filter or confirm `deletedObjects: 1` in the response.
 
 ---
 
@@ -429,33 +302,33 @@ Confirm the object is deleted.
 | DataType | JSON value type | Example | Notes |
 |----------|----------------|---------|-------|
 | `String` | string | `"Hello World"` | |
-| `TextRef` | string | `"Long text content..."` | For longer text |
-| `TextRef.JavaScript` | string | `"function() { ... }"` | JavaScript code |
-| `TextRef.CSS` | string | `".class { color: red; }"` | CSS code |
+| `TextRef` | string | `"Long text content..."` | |
+| `TextRef.JavaScript` | string | `"function() { ... }"` | |
+| `TextRef.CSS` | string | `".class { color: red; }"` | |
 | `XmlRef.SimpleHtml` | string | `"<div>HTML content</div>"` | XHTML with `<div>` root |
-| `Integer` | number | `42` | Whole numbers |
-| `Decimal` | number | `3.14` | Decimal numbers |
-| `Float` | number | `1.5` | Floating point |
-| `Boolean` | boolean | `true` | `true` or `false` |
-| `DateTime` | string | `"2025-06-15T10:30:00Z"` | ISO 8601 format |
+| `Integer` | number | `42` | |
+| `Decimal` | number | `3.14` | |
+| `Float` | number | `1.5` | |
+| `Boolean` | boolean | `true` | |
+| `DateTime` | string | `"2025-06-15T10:30:00Z"` | ISO 8601 |
 | `DateTime.Date` | string | `"2025-06-15"` | Date only |
-| `ObjRef` | number | `2100500` | Object ID reference |
-| `BinRef` | number | `2100600` | Binary object ID reference |
+| `ObjRef` | number | `2100500` | Object ID |
+| `BinRef` | number | `2100600` | Binary object ID |
 | `String.DataType` | string | `"String"` | One of the DataType enum values |
 | `String.UserName` | string | `"admin"` | NovaDB username |
-| `String.RGBColor` | string | `"#FF0000"` | Hex color code |
+| `String.RGBColor` | string | `"#FF0000"` | Hex color |
 
 ---
 
-## CmsValue Structure
+## CmsValue Structure (inside the JSON string)
 
 ```typescript
 {
-  attribute: number,   // Attribute definition ID
-  language: number,    // 201=EN, 202=DE, 0=language-independent
-  variant: number,     // 0=default
-  value: unknown,      // The actual value (type depends on DataType)
-  sortReverse?: number // Multi-value ordering (0, 1, 2, ...)
+  attribute: number,     // Attribute definition ID
+  language: number,      // 201=EN, 202=DE, 0=language-independent
+  variant: number,       // 0=default
+  value: unknown,        // Scalar OR array for multi-value (auto-expanded)
+  sortReverse?: number   // Optional explicit multi-value ordering
 }
 ```
 
@@ -465,23 +338,22 @@ Confirm the object is deleted.
 
 | Operation | Response |
 |-----------|----------|
-| Create (`cms_create_objects`) | `{ transaction, createdObjectIds: number[] }` |
-| Update (`cms_update_objects`) | `{ updatedObjects, createdValues, transaction }` |
-| Delete (`cms_delete_objects`) | `{ deletedObjects, transaction }` |
-| Get single (`cms_get_object`) | `CmsObject` with `meta` and `values` |
-| Get multiple (`cms_get_objects`) | `{ objects: CmsObject[] }` |
-| Get typed (`cms_get_typed_objects`) | `{ objects: CmsObject[], continue? }` |
-| Index search | `{ objects: [...], more, changeTrackingVersion }` |
-| Index count | `{ count }` |
+| `object_create` | `{ createdObjectId, transaction }` |
+| `object_update` | `{ objectId, updatedObjects, createdValues, transaction }` |
+| `object_delete` | `{ deletedObjects, transaction }` |
+| `object_get` | `ObjectQueryResult` |
+| `object_query` | `ObjectQueryResult` with pagination |
+| `object_count` | `{ count }` |
+| `objecttype_describe` | `ObjectTypeDescription` |
+| `objecttype_query` | `ObjectQueryResult` |
 
 ---
 
 ## Branch Parameter
 
-- **CMS API:** Requires a **numeric branch ID** (int32).
-- **Index API:** Requires a **numeric branch ID string** (e.g. `"2100347"`). Never use `"branchDefault"`.
+- All tools take `branchId` as an **int**. No named branch identifiers.
 
-> **Recommendation:** Schema changes should be made on a named branch. This allows review and rollback.
+> **Recommendation:** Schema changes should be made on a named branch (work package). This allows review and rollback.
 
 ---
 
@@ -491,50 +363,34 @@ Confirm the object is deleted.
 
 ```json
 {
-  "branch": "<branch>",
-  "objects": [{
-    "meta": { "typeRef": 10 },
-    "values": [
-      { "attribute": 1000, "language": 201, "variant": 0, "value": "My Attribute EN" },
-      { "attribute": 1000, "language": 202, "variant": 0, "value": "Mein Attribut DE" },
-      { "attribute": 1001, "language": 0, "variant": 0, "value": "String" },
-      { "attribute": 1004, "language": 0, "variant": 0, "value": false },
-      { "attribute": 1017, "language": 0, "variant": 0, "value": true },
-      { "attribute": 1018, "language": 0, "variant": 0, "value": false }
-    ]
-  }]
+  "branchId": 2100347,
+  "objectTypeId": 10,
+  "values": "[{\"attribute\":1000,\"language\":201,\"variant\":0,\"value\":\"My Attribute EN\"},{\"attribute\":1000,\"language\":202,\"variant\":0,\"value\":\"Mein Attribut DE\"},{\"attribute\":1001,\"language\":0,\"variant\":0,\"value\":\"String\"},{\"attribute\":1017,\"language\":0,\"variant\":0,\"value\":true},{\"attribute\":1018,\"language\":0,\"variant\":0,\"value\":false}]"
 }
 ```
 
 ### Add an Attribute to a Form
 
-1. Read the form to get current fields (attr 5053)
-2. Append the new attribute ID to the list
-3. Rebuild sortReverse values (0, 1, 2, ...)
-4. Update with the complete field list
+1. Read the form (`object_get`) — extract current fields from 5053.
+2. Append the new attribute id to the array.
+3. Update via `object_update` with the complete array inside `value`.
 
 ### Create a new Object Type with Form
 
-1. Create the object type (typeRef=0) with name
-2. Create a form (typeRef=50) with desired fields
-3. Link the form to the type via attr 5001 (create form) and/or 5002 (detail forms)
-4. Optionally create an Application Area entry or add to existing one
+1. Create the object type (`object_create`, `objectTypeId: 0`) with name.
+2. Create a form (`object_create`, `objectTypeId: 50`) with desired fields.
+3. Link the form to the type via `object_update` setting 5001 (create form) and/or 5002 (detail forms).
+4. Optionally add to an Application Area.
+
+> Each step runs in a separate transaction. Partial failures leave partial state.
 
 ### Create a new Form
 
 ```json
 {
-  "branch": "<branch>",
-  "objects": [{
-    "meta": { "typeRef": 50 },
-    "values": [
-      { "attribute": 1000, "language": 201, "variant": 0, "value": "My Form EN" },
-      { "attribute": 1000, "language": 202, "variant": 0, "value": "Mein Formular DE" },
-      { "attribute": 5053, "language": 0, "variant": 0, "value": <attrDefId1>, "sortReverse": 0 },
-      { "attribute": 5053, "language": 0, "variant": 0, "value": <attrDefId2>, "sortReverse": 1 },
-      { "attribute": 5053, "language": 0, "variant": 0, "value": <attrDefId3>, "sortReverse": 2 }
-    ]
-  }]
+  "branchId": 2100347,
+  "objectTypeId": 50,
+  "values": "[{\"attribute\":1000,\"language\":201,\"variant\":0,\"value\":\"My Form EN\"},{\"attribute\":1000,\"language\":202,\"variant\":0,\"value\":\"Mein Formular DE\"},{\"attribute\":5053,\"language\":0,\"variant\":0,\"value\":[<attrDefId1>,<attrDefId2>,<attrDefId3>]}]"
 }
 ```
 
@@ -542,9 +398,7 @@ Confirm the object is deleted.
 
 ## Application Area Discovery
 
-To find object types by domain or theme:
-
-1. Search Application Areas: `objectTypeIds: [60]`, `searchPhrase: "<theme>"`
-2. Fetch the App Area with `novadb_cms_get_object` (include attr 6001)
-3. Extract type IDs from attribute 6001 values
-4. Fetch types with `novadb_cms_get_objects`
+1. `object_query` with `objectTypeId: 60`, `searchPhrase: "<theme>"`
+2. `object_get` on the App Area with `attributes: [6001]`
+3. Extract type IDs from 6001
+4. `objecttype_describe` for each

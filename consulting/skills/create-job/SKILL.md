@@ -2,26 +2,27 @@
 name: create-job
 description: "Create and start a new job on a branch."
 user-invocable: false
-allowed-tools: novadb_cms_create_job, novadb_cms_get_job
+allowed-tools: job_create, job_query
 ---
 
 # Create Job
 
-Create and start a new job on a branch. After creation, auto-fetch the full job object.
+Create and start a new job on a branch.
 
 ## Scope
 
 **This skill ONLY handles:** Creating and starting a new job on a branch.
 
-**For uploading job input files first** → use `job-input-upload`
 **For monitoring after creation** → use `get-job-progress` or `get-job-logs`
 
 > **Note:** NovaDB object IDs start at 2²¹ (2,097,152). All IDs in examples below are samples — always use real IDs from your system.
 
+> **Heads up:** The new C# MCP does not yet expose a job input file upload tool. Jobs that expect an input file (CSV import, etc.) cannot be started from this skill until the MCP adds that capability.
+
 ## Tools
 
-1. `novadb_cms_create_job` — Create the job
-2. `novadb_cms_get_job` — Fetch the created job (required follow-up)
+1. `job_create` — Create the job
+2. `job_query` — Fetch the created job (optional follow-up, filter by branchId)
 
 ## Parameters
 
@@ -29,39 +30,32 @@ Create and start a new job on a branch. After creation, auto-fetch the full job 
 {
   "branchId": 2100347,
   "jobDefinitionId": 12345,
+  "language": 201,
   "scopeIds": [100, 200],
   "objIds": [300, 400],
-  "parameters": [{ "name": "param1", "values": ["value1"] }],
-  "inputFile": { "token": "upload-token", "name": "input.csv" },
-  "language": 201,
-  "username": "jdoe"
+  "parameters": "[{\"name\":\"param1\",\"values\":[\"value1\"]}]"
 }
 ```
 
-- `branchId` — Branch ID (number, required)
-- `jobDefinitionId` — Job definition ID (number, required)
-- `scopeIds` — Scope object IDs (optional)
-- `objIds` — Object IDs to process (optional)
-- `parameters` — Job parameters as name/values pairs (optional)
-- `inputFile` — Input file reference from prior upload via `novadb_cms_job_input_upload` (optional)
-- `language` — Language ID for the job (optional)
-- `username` — Acting username for audit (optional)
+- `branchId` — Branch ID (int, required)
+- `jobDefinitionId` — Job definition ID (int, required)
+- `language` — Language ID (int, required, e.g. 201 for EN)
+- `scopeIds` — Scope object IDs (optional, int[])
+- `objIds` — Object IDs to process (optional, int[])
+- `parameters` — JSON-encoded **string** of `[{ name, values: [...] }]` (optional)
 
 ## Workflow
 
-1. Call `novadb_cms_create_job` with the parameters above
-2. The response returns `{ id }` — **not** the full job object
-3. Call `novadb_cms_get_job` with the returned `id` to fetch the full job
-4. Return the full job data to the user
+1. Call `job_create` with the parameters above.
+2. The response returns the full `CmsJob` object with `id`, `state`, timestamps.
+3. Optionally poll with `job_progress` / `job_log` / `job_query`.
 
 ## Response
 
-The create call returns `{ id }`. After fetching, the full job includes id, state, definition, branch, progress, timestamps, etc.
+Returns `CmsJob` with job id, state, definition, branch, timestamps.
 
 ## Common Patterns
 
-### API Response (Create Job)
-Returns job creation result. Use `get-job` to fetch the full job object with state and progress.
-
-### Job States
-0=New, 1=Running, 2=Succeeded, 3=Error, 4=KillRequested, 5=RestartRequested.
+### Job States (new numbering)
+0=New, 1=Running, 2=Succeeded, 3=Error, 4=KillRequest, 5=RestartRequest.
+Note: when **setting** state via `job_update`, only `0=KillRequest` and `1=RestartRequest` are valid values — these are different from the read-side enum.

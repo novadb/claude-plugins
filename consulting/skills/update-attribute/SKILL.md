@@ -2,7 +2,7 @@
 name: update-attribute
 description: "Update properties of an existing attribute definition (typeRef=10)."
 user-invocable: false
-allowed-tools: novadb_cms_update_objects
+allowed-tools: object_update
 ---
 
 # Update Attribute
@@ -23,13 +23,14 @@ Update properties of an existing attribute definition (typeRef=10). Only send ch
 
 ## Tool
 
-`novadb_cms_update_objects`
+`object_update`
 
 ## Parameters
 
-- `branch` — Numeric branch ID (int32). Always use the branch the user is currently working on.
-- `objects` — Array with one object: `{ meta: { id: <attrId>, typeRef: 10 }, values: [...] }`
-- `comment` / `username` — (optional) Audit trail
+- `branchId` — Numeric branch ID (int). Always use the branch the user is currently working on.
+- `objectId` — The attribute definition ID (int).
+- `values` — JSON-encoded **string** of a CmsValue array (see example below).
+- `comment` — (optional) Audit trail comment.
 
 ## Attribute Property IDs
 
@@ -64,47 +65,42 @@ Only include values for fields being changed. See the full table in the create-a
 | Validation code | 1008 | TextRef.JS | 0 | |
 | Virtualization code | 1009 | TextRef.JS | 0 | |
 
-## Value Construction Example
+## Example Call
 
 Rename an attribute and make it required:
 
 ```json
 {
-  "branch": "<branchId>",
-  "objects": [
-    {
-      "meta": { "id": 12345, "typeRef": 10 },
-      "values": [
-        { "attribute": 1000, "language": 201, "variant": 0, "value": "New Name" },
-        { "attribute": 1018, "language": 0, "variant": 0, "value": true }
-      ]
-    }
-  ],
+  "branchId": 2100347,
+  "objectId": 12345,
+  "values": "[{\"attribute\":1000,\"language\":201,\"variant\":0,\"value\":\"New Name\"},{\"attribute\":1018,\"language\":0,\"variant\":0,\"value\":true}]",
   "comment": "Renamed and set as required"
 }
 ```
 
+Note `values` is a **JSON-encoded string**, not an array literal — the new C# MCP expects it that way.
+
 ## Response
 
-Returns `{ updatedObjects, createdValues, transaction }`.
+Returns `UpdateObjectResult` with `objectId`, `updatedObjects`, `createdValues`, and `transaction`.
 
 ## Important
 
 - `apiIdentifier` CAN be changed via update, but must be unique across all branches and attributes. Only set when explicitly necessary.
-- Only provide fields that are changing. Omitted fields are untouched.
+- Only provide fields that are changing. Omitted fields are untouched (read-then-merge semantics).
 
 ## Common Patterns
 
 ### CmsValue Format
-Every value entry follows: `{ attribute, language, variant, value, sortReverse? }`
+Every value entry in the JSON string follows: `{ attribute, language, variant, value, sortReverse? }`
 - `language`: 201=EN, 202=DE, 0=language-independent
 - `variant`: 0=default
 - `sortReverse`: for multi-value ordering (0, 1, 2, ...)
 
 ### Multi-Value ObjRef
-Never arrays. Separate entries with sortReverse:
-- ✓ `{ attr: 1015, value: id1, sortReverse: 0 }, { attr: 1015, value: id2, sortReverse: 1 }`
-- ✗ `{ attr: 1015, value: [id1, id2] }`
+Separate entries with sortReverse (can also be passed as an array inside the JSON string — the MCP auto-expands):
+- ✓ `{"attribute":1015,"value":id1,"sortReverse":0}, {"attribute":1015,"value":id2,"sortReverse":1}`
+- ✓ `{"attribute":1015,"value":[id1,id2]}` (auto-expanded by the MCP)
 
 ### API Response (PATCH/Update)
 Returns `{ transaction }`. Fetch the object afterward to confirm changes.

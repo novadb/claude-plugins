@@ -2,7 +2,7 @@
 name: create-attribute
 description: "Create a new attribute definition (typeRef=10) in NovaDB."
 user-invocable: false
-allowed-tools: novadb_cms_create_objects, novadb_cms_get_object
+allowed-tools: object_create, object_get
 ---
 
 # Create Attribute
@@ -24,16 +24,15 @@ Create an attribute definition (typeRef=10) in NovaDB. Supports all data types, 
 
 ## Tools
 
-1. `novadb_cms_create_objects` — Create the attribute definition
-2. `novadb_cms_get_object` — Fetch the created attribute to return full data
+1. `object_create` — Create the attribute definition (returns `createdObjectId`)
+2. `object_get` — Optional: fetch the full created attribute for confirmation
 
-## Step 1: Create the attribute
+## Parameters
 
-Call `novadb_cms_create_objects` with:
-
-- `branch` — Numeric branch ID (int32). Always use the branch the user is currently working on.
-- `objects` — Array with one object: `{ meta: { typeRef: 10 }, values: [...] }`
-- `comment` / `username` — (optional) Audit trail
+- `branchId` — Numeric branch ID (int). Always use the branch the user is currently working on.
+- `objectTypeId` — Always `10`.
+- `values` — JSON-encoded **string** of a CmsValue array.
+- `comment` — (optional) Audit trail.
 
 ### Attribute Property IDs
 
@@ -41,7 +40,7 @@ Only include values for fields that are explicitly needed. Name (EN) and data ty
 
 ### Decision Guidelines
 
-- **`apiIdentifier`** (meta field): Only set when explicitly requested. Must be unique across all branches and attributes.
+- **`apiIdentifier`**: Not settable on create via this tool — set after creation via `object_update` if needed.
 - **Language dependent (1017)**: Always question whether language-dependence is appropriate for the business case. Only set to `true` when the attribute genuinely holds translatable content.
 - **Inheritance (1013)**: Default is `"None"`. Only set when explicitly requested.
 - **Allow multiple (1004)**: Default is `false`. Verify case-by-case before enabling.
@@ -59,7 +58,7 @@ Only include values for fields that are explicitly needed. Name (EN) and data ty
 | Allow multiple | 1004 | Boolean | 0 | |
 | Predefined values | 1006 | Boolean | 0 | |
 | Unique values | 1032 | Boolean | 0 | |
-| Allowed types | 1015 | ObjRef | 0 | For ObjRef data type — one entry per type ID with `sortReverse` |
+| Allowed types | 1015 | ObjRef | 0 | For ObjRef — multi-value (pass as array in `value`) |
 | Inheritance behavior | 1013 | String | 0 | `"None"` / `"Inheriting"` / `"InheritingAll"` |
 | Virtual | 1020 | Boolean | 0 | |
 | Parent group | 1019 | ObjRef | 0 | |
@@ -89,52 +88,38 @@ ObjRef, BinRef, BinRef.Icon, BinRef.Thumbnail,
 String.DataType, String.InheritanceBehavior, String.UserName, String.RGBColor
 ```
 
-### Value Construction Example
+### Call Example
 
 ```json
 {
-  "branch": "<branchId>",
-  "objects": [
-    {
-      "meta": { "typeRef": 10 },
-      "values": [
-        { "attribute": 1000, "language": 201, "variant": 0, "value": "Industry" },
-        { "attribute": 1000, "language": 202, "variant": 0, "value": "Branche" },
-        { "attribute": 1001, "language": 0, "variant": 0, "value": "String" }
-      ]
-    }
-  ],
+  "branchId": 2100347,
+  "objectTypeId": 10,
+  "values": "[{\"attribute\":1000,\"language\":201,\"variant\":0,\"value\":\"Industry\"},{\"attribute\":1000,\"language\":202,\"variant\":0,\"value\":\"Branche\"},{\"attribute\":1001,\"language\":0,\"variant\":0,\"value\":\"String\"}]",
   "comment": "Created via AI assistant"
 }
 ```
 
 ### ObjRef with Allowed Types Example
 
-For an ObjRef attribute that references specific types, use separate entries with `sortReverse`:
+For an ObjRef attribute that references specific types, multi-value on 1015 — pass as array inside `value`:
+
+```json
+[{"attribute":1001,"language":0,"variant":0,"value":"ObjRef"},
+ {"attribute":1015,"language":0,"variant":0,"value":[12345,67890]}]
+```
+
+## Step 2: Fetch the Created Attribute
+
+The response returns `{ createdObjectId, transaction }`. Use `object_get` to fetch the full object:
 
 ```json
 {
-  "values": [
-    { "attribute": 1001, "language": 0, "variant": 0, "value": "ObjRef" },
-    { "attribute": 1015, "language": 0, "variant": 0, "value": 12345, "sortReverse": 0 },
-    { "attribute": 1015, "language": 0, "variant": 0, "value": 67890, "sortReverse": 1 }
-  ]
+  "branchId": 2100347,
+  "objectIds": [<createdObjectId>],
+  "languages": [201, 202],
+  "attributes": []
 }
 ```
-
-## Step 2: Fetch the created attribute
-
-The POST response returns `{ transaction, createdObjectIds: [id] }`. Use the first ID to fetch the full object:
-
-```json
-{
-  "branch": "<branchId>",
-  "objectId": "<createdObjectIds[0]>",
-  "inherited": true
-}
-```
-
-Return the fetched `CmsObject` to the user.
 
 ## Minimum Required
 
@@ -143,16 +128,15 @@ Return the fetched `CmsObject` to the user.
 
 ## Common Patterns
 
-### CmsValue Format
+### CmsValue Format (inside the JSON string)
 Every value entry follows: `{ attribute, language, variant, value, sortReverse? }`
 - `language`: 201=EN, 202=DE, 0=language-independent
 - `variant`: 0=default
-- `sortReverse`: for multi-value ordering (0, 1, 2, ...)
 
 ### Multi-Value ObjRef
-Never arrays. Separate entries with sortReverse:
-- ✓ `{ attr: 1015, value: id1, sortReverse: 0 }, { attr: 1015, value: id2, sortReverse: 1 }`
-- ✗ `{ attr: 1015, value: [id1, id2] }`
+Either form works:
+- ✓ Array: `{"attribute":1015,"value":[id1,id2]}`
+- ✓ Entries with sortReverse: `{"attribute":1015,"value":id1,"sortReverse":0}`
 
-### API Response (POST/Create)
-Returns `{ transaction, createdObjectIds: [id] }`. Use the ID to fetch the full object.
+### API Response (Create)
+Returns `{ createdObjectId, transaction }`.

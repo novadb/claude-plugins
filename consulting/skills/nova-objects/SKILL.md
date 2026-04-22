@@ -2,7 +2,7 @@
 name: nova-objects
 description: "Data object CRUD reference — schema discovery, create/update/delete workflows, value formats, and multi-value safety patterns."
 user-invocable: false
-allowed-tools: novadb_cms_get_object, novadb_cms_get_objects, novadb_cms_get_typed_objects, novadb_cms_create_objects, novadb_cms_update_objects, novadb_cms_delete_objects, novadb_index_search_objects, novadb_index_count_objects, novadb_index_object_occurrences, novadb_index_object_xml_link_count, novadb_index_suggestions
+allowed-tools: object_get, object_query, object_create, object_update, object_delete, object_count, object_xmllinkcount, objecttype_describe
 ---
 
 # NovaDB Data Object Management Reference
@@ -28,70 +28,21 @@ Complete reference for data object CRUD operations, schema discovery, value form
 
 **Before creating or updating any object, discover the type structure.** Never guess attribute IDs or data types.
 
-### Step 1: Get the Object Type
-
-Fetch the type to find its forms:
+### One-shot: `objecttype_describe`
 
 ```json
 {
-  "branch": "<branch>",
-  "id": "<typeId>",
-  "inherited": true,
-  "attributes": "1000,5001,5002,5005"
+  "branchId": 2100347,
+  "objectTypeId": <typeId>,
+  "languages": [201, 202]
 }
 ```
 
-Tool: `novadb_cms_get_object`
+Returns `{ id, apiIdentifier, name, description, displayNameAttrId, createFormId, detailFormIds, attributes[] }`. Each attribute carries `{ dataType, multiValue, languageDependent, variantDependent, defaultForm, apiIdentifier }`.
 
-Key attributes on the type:
-- **5001** — Create Form (single ObjRef → form ID)
-- **5002** — Detail Forms (multi-value ObjRef → form IDs)
-- **5005** — Display Name Attribute (which attribute serves as the object's display name)
+That is usually enough. Only fall back to the raw chain if you need something not in the description.
 
-### Step 2: Get the Form(s)
-
-Fetch the create form (and optionally detail forms) to find the fields:
-
-```json
-{
-  "branch": "<branch>",
-  "ids": "<createFormId>,<detailFormId1>,<detailFormId2>",
-  "inherited": true,
-  "attributes": "1000,5053"
-}
-```
-
-Tool: `novadb_cms_get_objects`
-
-Extract attribute definition IDs from **5053** values (sorted by `sortReverse`).
-
-### Step 3: Get the Attribute Definitions
-
-Fetch all attribute definitions to learn their data types, constraints, and flags:
-
-```json
-{
-  "branch": "<branch>",
-  "ids": "<attrDefId1>,<attrDefId2>,<attrDefId3>",
-  "inherited": true,
-  "attributes": "1000,1001,1004,1015,1017,1018"
-}
-```
-
-Tool: `novadb_cms_get_objects`
-
-### Key Attribute Definition Attributes
-
-| Attribute | ID | Type | Purpose |
-|-----------|------|------|---------|
-| Name | 1000 | String | Display name (language-dependent: 201=EN, 202=DE) |
-| Data type | 1001 | String.DataType | The value format (see Value Format Table) |
-| Allow multiple | 1004 | Boolean | `true` = multi-value attribute |
-| Allowed types | 1015 | ObjRef | For ObjRef attrs: which object types are valid targets (multi-value) |
-| Language dependent | 1017 | Boolean | `true` = separate values per language |
-| Required | 1018 | Boolean | `true` = must have a value |
-
-### Complete Discovery Chain
+### Raw chain (fallback)
 
 ```
 Object Type (typeRef=0)
@@ -99,47 +50,51 @@ Object Type (typeRef=0)
   → Detail Forms (attr 5002) → Form Content (attr 5053) → Attribute Definitions
 ```
 
+Use `object_get` hops. Key attribute ids:
+
+| Attribute | ID | Type | Purpose |
+|-----------|------|------|---------|
+| Name | 1000 | String | Display name (language-dependent: 201=EN, 202=DE) |
+| Data type | 1001 | String.DataType | Value format |
+| Allow multiple | 1004 | Boolean | `true` = multi-value attribute |
+| Allowed types | 1015 | ObjRef | For ObjRef attrs: valid target types |
+| Language dependent | 1017 | Boolean | Separate values per language |
+| Required | 1018 | Boolean | Must have a value |
+
 ---
 
 ## Create Workflow
 
 ### 1. Discover the schema (see above)
 
-### 2. Build the values array
+### 2. Build the values payload (JSON-encoded string)
 
-Each value is a `CmsValue` entry. For language-dependent attributes, send one entry per language. For multi-value attributes, send one entry per value with `sortReverse` ordering.
+Each entry is a `CmsValue`. For language-dependent attributes, send one entry per language. For multi-value attributes, either pass an array inside `value` (preferred) or individual entries with `sortReverse`.
 
 ```json
 {
-  "branch": "<branch>",
-  "objects": [{
-    "meta": { "typeRef": "<typeId>" },
-    "values": [
-      { "attribute": 1000, "language": 201, "variant": 0, "value": "Name EN" },
-      { "attribute": 1000, "language": 202, "variant": 0, "value": "Name DE" },
-      { "attribute": "<attrDefId>", "language": 0, "variant": 0, "value": "<value>" }
-    ]
-  }]
+  "branchId": 2100347,
+  "objectTypeId": <typeId>,
+  "values": "[{\"attribute\":1000,\"language\":201,\"variant\":0,\"value\":\"Name EN\"},{\"attribute\":1000,\"language\":202,\"variant\":0,\"value\":\"Name DE\"},{\"attribute\":<attrDefId>,\"language\":0,\"variant\":0,\"value\":\"<value>\"}]"
 }
 ```
 
-Tool: `novadb_cms_create_objects`
+Tool: `object_create`. Response: `{ createdObjectId, transaction }`.
 
-Response: `{ transaction, createdObjectIds: [<newId>] }`
+> `object_create` creates **one** object per call. Sequential creates are not atomic — plan for partial state.
 
 ### 3. Verify
 
-Fetch the created object to confirm:
-
 ```json
 {
-  "branch": "<branch>",
-  "id": "<newId>",
-  "inherited": true
+  "branchId": 2100347,
+  "objectIds": [<newId>],
+  "languages": [201, 202],
+  "attributes": []
 }
 ```
 
-Tool: `novadb_cms_get_object`
+Tool: `object_get`.
 
 ---
 
@@ -148,22 +103,22 @@ Tool: `novadb_cms_get_object`
 | DataType | JSON value type | Example | Notes |
 |----------|----------------|---------|-------|
 | `String` | string | `"Hello World"` | |
-| `TextRef` | string | `"Long text content..."` | For longer text |
-| `TextRef.JavaScript` | string | `"function() { ... }"` | JavaScript code |
-| `TextRef.CSS` | string | `".class { color: red; }"` | CSS code |
+| `TextRef` | string | `"Long text content..."` | |
+| `TextRef.JavaScript` | string | `"function() { ... }"` | |
+| `TextRef.CSS` | string | `".class { color: red; }"` | |
 | `XmlRef.SimpleHtml` | string | `"<div>HTML content</div>"` | XHTML with `<div>` root |
 | `XmlRef.VisualDocument` | string | `"<div>...</div>"` | Rich document XHTML |
-| `Integer` | number | `42` | Whole numbers |
-| `Decimal` | number | `3.14` | Decimal numbers |
-| `Float` | number | `1.5` | Floating point |
-| `Boolean` | boolean | `true` | `true` or `false` |
-| `DateTime` | string | `"2025-06-15T10:30:00Z"` | ISO 8601 format |
+| `Integer` | number | `42` | |
+| `Decimal` | number | `3.14` | |
+| `Float` | number | `1.5` | |
+| `Boolean` | boolean | `true` | |
+| `DateTime` | string | `"2025-06-15T10:30:00Z"` | ISO 8601 |
 | `DateTime.Date` | string | `"2025-06-15"` | Date only |
-| `ObjRef` | number | `2100500` | Object ID reference |
-| `BinRef` | number | `2100600` | Binary object ID reference |
+| `ObjRef` | number | `2100500` | Object ID |
+| `BinRef` | number | `2100600` | Binary object ID |
 | `String.DataType` | string | `"String"` | One of the DataType enum values |
 | `String.UserName` | string | `"admin"` | NovaDB username |
-| `String.RGBColor` | string | `"#FF0000"` | Hex color code |
+| `String.RGBColor` | string | `"#FF0000"` | Hex color |
 
 ---
 
@@ -171,21 +126,20 @@ Tool: `novadb_cms_get_object`
 
 ### 1. Read the current object
 
-**Always read before writing** to get current values and avoid accidental data loss:
-
 ```json
 {
-  "branch": "<branch>",
-  "id": "<objectId>",
-  "inherited": true
+  "branchId": 2100347,
+  "objectIds": [<objectId>],
+  "languages": [201, 202],
+  "attributes": []
 }
 ```
 
-Tool: `novadb_cms_get_object`
+Tool: `object_get`.
 
 ### 2. Merge changes
 
-- **Single-value attributes:** Can be sent in isolation — only the specified attributes are changed.
+- **Single-value attributes:** Can be sent in isolation — only the specified attributes are changed (read-then-merge semantics).
 - **Multi-value attributes (1004=true):** Must send the COMPLETE value set. Omitted entries are deleted.
 
 ### Multi-Value Safety Pattern
@@ -193,61 +147,38 @@ Tool: `novadb_cms_get_object`
 ```
 1. Read the object → extract all values for the multi-value attribute
 2. Merge: add/remove/reorder values as needed
-3. Rebuild sortReverse (0, 1, 2, ...)
-4. Send the complete set in the update
+3. Send the complete set (array-in-value is cleanest)
 ```
 
 ### 3. Send the update
 
 ```json
 {
-  "branch": "<branch>",
-  "objects": [{
-    "meta": { "id": "<objectId>", "typeRef": "<typeId>" },
-    "values": [
-      { "attribute": "<attrDefId>", "language": 0, "variant": 0, "value": "<newValue>" }
-    ]
-  }]
+  "branchId": 2100347,
+  "objectId": <objectId>,
+  "values": "[{\"attribute\":<attrDefId>,\"language\":0,\"variant\":0,\"value\":\"<newValue>\"}]"
 }
 ```
 
-Tool: `novadb_cms_update_objects`
-
-Response: `{ updatedObjects, createdValues, transaction }`
+Tool: `object_update`. Response: `{ objectId, updatedObjects, createdValues, transaction }`.
 
 ### 4. Verify
 
-Re-read the object and confirm the changes:
-
-```json
-{
-  "branch": "<branch>",
-  "id": "<objectId>",
-  "inherited": true
-}
-```
-
-Tool: `novadb_cms_get_object`
+Re-read the object and confirm the changes.
 
 ### Multi-Value ObjRef Example
 
-Updating a multi-value ObjRef attribute (e.g. adding a reference):
+Updating a multi-value ObjRef attribute:
 
 ```json
 {
-  "branch": "<branch>",
-  "objects": [{
-    "meta": { "id": "<objectId>", "typeRef": "<typeId>" },
-    "values": [
-      { "attribute": "<attrDefId>", "language": 0, "variant": 0, "value": 2100500, "sortReverse": 0 },
-      { "attribute": "<attrDefId>", "language": 0, "variant": 0, "value": 2100501, "sortReverse": 1 },
-      { "attribute": "<attrDefId>", "language": 0, "variant": 0, "value": 2100502, "sortReverse": 2 }
-    ]
-  }]
+  "branchId": 2100347,
+  "objectId": <objectId>,
+  "values": "[{\"attribute\":<attrDefId>,\"language\":0,\"variant\":0,\"value\":[2100500,2100501,2100502]}]"
 }
 ```
 
-Each value gets its own CmsValue entry with `sortReverse` for ordering. Never use arrays as values.
+Array order = display order. The MCP auto-expands this to sorted entries.
 
 ---
 
@@ -255,16 +186,14 @@ Each value gets its own CmsValue entry with `sortReverse` for ordering. Never us
 
 ### 1. Check references
 
-Before deleting, check if other objects reference this object via XML attributes:
-
 ```json
 {
-  "branch": "<branchNumericId>",
+  "branchId": 2100347,
   "objectIds": [<objectId>]
 }
 ```
 
-Tool: `novadb_index_object_xml_link_count`
+Tool: `object_xmllinkcount`.
 
 If the count is > 0, warn the user about existing references.
 
@@ -272,141 +201,104 @@ If the count is > 0, warn the user about existing references.
 
 Show the object that will be deleted (name, type, ID) and any reference counts. Ask the user to confirm.
 
-### 3. Delete (soft-delete)
+### 3. Delete
 
 ```json
 {
-  "branch": "<branch>",
-  "objectIds": ["<objectId>"]
+  "branchId": 2100347,
+  "objectIds": [<objectId>],
+  "comment": "reason"
 }
 ```
 
-Tool: `novadb_cms_delete_objects`
+Tool: `object_delete`. Response: `{ deletedObjects, transaction }`.
 
-Response: `{ deletedObjects, transaction }`
-
-**Note:** This is a soft-delete — objects can be restored. The `objectIds` parameter accepts strings (IDs, GUIDs, or ApiIdentifiers).
+> `objectIds` is an int[], but per the safety rules, confirm each schema-level deletion individually.
 
 ### 4. Verify
 
-Confirm deletion by searching for the object or fetching with `deleted` filter.
+Confirm deletion by querying for the object with `isDeleted` filter.
 
 ---
 
-## Read / Inspect Object
+## Read / Inspect
 
 ### Fetch a single object
 
-```json
-{
-  "branch": "<branch>",
-  "id": "<objectId>",
-  "inherited": true
-}
-```
-
-Tool: `novadb_cms_get_object`
+Use `object_get` with a one-element `objectIds` array (see §Update step 1).
 
 ### Fetch multiple objects
 
-```json
-{
-  "branch": "<branch>",
-  "ids": "<id1>,<id2>,<id3>",
-  "inherited": true
-}
-```
-
-Tool: `novadb_cms_get_objects`
+Pass the full id list in one `object_get` call.
 
 ### ObjRef Resolution Pattern
 
-When values contain numeric ObjRef references:
-
 1. Collect all unique ObjRef IDs
-2. Batch-fetch: `novadb_cms_get_objects` with `ids` and `attributes: "1000"`, `inherited: true`
+2. Batch-fetch with `object_get`, `attributes: [1000]`, `languages: [201, 202]`
 3. Match `meta.id` to the ObjRef values
 4. Display resolved names instead of bare IDs
 
 ---
 
-## Finding Objects via Index API
+## Finding Objects via `object_query`
 
 ### Search
 
 ```json
 {
-  "branch": "<numericBranchId>",
-  "filter": {
-    "objectTypeIds": [<typeId>],
-    "searchPhrase": "<query>"
-  },
-  "sortBy": [{ "sortBy": 3 }],
+  "branchId": 2100347,
+  "objectTypeId": <typeId>,
+  "languages": [201, 202],
+  "searchPhrase": "<query>",
+  "skip": 0,
   "take": 20
 }
 ```
-
-Tool: `novadb_index_search_objects`
 
 ### Count
 
 ```json
 {
-  "branch": "<numericBranchId>",
-  "filter": {
-    "objectTypeIds": [<typeId>]
-  }
+  "branchId": 2100347,
+  "objectTypeId": <typeId>,
+  "searchPhrase": "<query>"
 }
 ```
 
-Tool: `novadb_index_count_objects`
-
-### Suggestions (autocomplete)
-
-```json
-{
-  "branch": "<numericBranchId>",
-  "pattern": "<partial>",
-  "filter": {
-    "objectTypeIds": [<typeId>]
-  },
-  "suggestDisplayName": true,
-  "take": 10
-}
-```
-
-Tool: `novadb_index_suggestions`
+Tool: `object_count`.
 
 ### Attribute-Level Filter
 
+`filters` is an array of `"<attrId>:<langId>:<variantId>:<operator>:<value>"` strings.
+
+| Operator | Meaning |
+|----------|---------|
+| 0 | Equal |
+| 1 | NotEqual |
+| 2 | GreaterThan |
+| 3 | LessThan |
+| 4 | Like |
+| 7 | ObjRefLookup |
+
+Example — all objects of a type with `required = true`:
+
 ```json
-{
-  "filter": {
-    "objectTypeIds": [<typeId>],
-    "filters": [{
-      "attrId": <attrDefId>,
-      "langId": 0,
-      "variantId": 0,
-      "value": "<filterValue>",
-      "compareOperator": 0
-    }]
-  }
-}
+{ "filters": ["1018:0:0:0:true"] }
 ```
 
-**compareOperator values:** 0=Equal, 1=NotEqual, 2=GreaterThan, 3=LessThan, 4=Like, 7=ObjRefLookup
+> The old Index API extras (`suggestions`, `match_strings`, `object_occurrences`) are not available in the C# MCP. Aggregate client-side if you need counts-per-something.
 
 ---
 
-## CmsValue Structure
+## CmsValue Structure (inside the JSON string)
 
 ```typescript
 {
-  attribute: number,   // Attribute definition ID
-  language: number,    // 201=EN, 202=DE, 0=language-independent
-  variant: number,     // 0=default
-  value: unknown,      // The actual value (type depends on DataType)
-  sortReverse?: number // Multi-value ordering (0, 1, 2, ...)
+  attribute: number,     // Attribute definition ID
+  language: number,      // 201=EN, 202=DE, 0=language-independent
+  variant: number,       // 0=default
+  value: unknown,        // Scalar OR array for multi-value (auto-expanded)
+  sortReverse?: number   // Optional explicit multi-value ordering
 }
 ```
 
@@ -416,21 +308,20 @@ Tool: `novadb_index_suggestions`
 
 | Operation | Response |
 |-----------|----------|
-| Create (`cms_create_objects`) | `{ transaction, createdObjectIds: number[] }` |
-| Update (`cms_update_objects`) | `{ updatedObjects, createdValues, transaction }` |
-| Delete (`cms_delete_objects`) | `{ deletedObjects, transaction }` |
-| Get single (`cms_get_object`) | `CmsObject` with `meta` and `values` |
-| Get multiple (`cms_get_objects`) | `{ objects: CmsObject[] }` |
-| Get typed (`cms_get_typed_objects`) | `{ objects: CmsObject[], continue? }` |
-| Index search | `{ objects: [...], more, changeTrackingVersion }` |
-| Index count | `{ count }` |
+| `object_create` | `{ createdObjectId, transaction }` |
+| `object_update` | `{ objectId, updatedObjects, createdValues, transaction }` |
+| `object_delete` | `{ deletedObjects, transaction }` |
+| `object_get` | `ObjectQueryResult` |
+| `object_query` | `ObjectQueryResult` with pagination |
+| `object_count` | `{ count }` |
+| `object_xmllinkcount` | `{ count }` |
+| `objecttype_describe` | `ObjectTypeDescription` |
 
 ---
 
 ## Branch Parameter
 
-- **CMS API:** Requires a **numeric branch ID** (int32).
-- **Index API:** Requires a **numeric branch ID string** (e.g. `"2100347"`). Never use `"branchDefault"`.
+- All object tools take `branchId` as an **int**. No named identifiers.
 
 ---
 
@@ -438,7 +329,7 @@ Tool: `novadb_index_suggestions`
 
 To find object types by domain or theme:
 
-1. Search Application Areas: `objectTypeIds: [60]`, `searchPhrase: "<theme>"`
-2. Fetch the App Area with `novadb_cms_get_object` (include attr 6001)
-3. Extract type IDs from attribute 6001 values
-4. Fetch types with `novadb_cms_get_objects`
+1. `object_query` with `objectTypeId: 60`, `searchPhrase: "<theme>"`
+2. `object_get` on the matching App Area with `attributes: [6001]`
+3. Extract type IDs from 6001 values
+4. `objecttype_describe` for each

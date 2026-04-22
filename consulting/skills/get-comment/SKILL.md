@@ -1,39 +1,46 @@
 ---
 name: get-comment
-description: "Fetch a single comment by its ID."
+description: "Fetch a single comment (via filtered comment_query)."
 user-invocable: false
-allowed-tools: novadb_cms_get_comment
+allowed-tools: comment_query
 ---
 
 # Get Comment
 
 ## Scope
 
-**This skill ONLY handles:** Fetching a single comment by its ID.
+**This skill ONLY handles:** Fetching a single comment by object or author filter.
 
 **For listing/filtering comments** → use `get-comments`
 
-Fetch a single comment by its ID.
+> **Note:** The new C# MCP does not expose a single-comment getter. Use `comment_query` with enough filters to narrow to a single result.
 
 ## Tool
 
-`novadb_cms_get_comment`
+`comment_query`
 
 ## Parameters
 
 ```json
 {
-  "commentId": "abc-123"
+  "branchId": 2100347,
+  "objectId": 12345,
+  "user": "jdoe",
+  "take": 50
 }
 ```
 
-- `commentId` — Comment ID (string, required)
+- `branchId` — Branch ID (int, optional)
+- `objectId` — Object the comment is on (int, optional)
+- `user` — Comment author (optional)
+- `continueToken` — Opaque pagination token (optional)
+- `take` — Page size (default 50)
 
 ## Response
 
-Returns the full comment object including id, body, branch reference, object reference, author, timestamps, and deleted status.
+Returns `CmsCommentList` with `comments[]`. Each comment contains id, body (HTML with user mentions as `<span>`), branch reference, object reference, author, timestamps, deleted status.
 
 ## Common Patterns
 
-### API Response (GET Comment)
-Returns the full comment object including id, body, branch reference, object reference, author, timestamps, and deleted status.
+### API Response (comment_query)
+Returns a list even when filtered to a single comment. Take the first match.

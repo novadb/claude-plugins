@@ -2,7 +2,7 @@
 name: update-comment
 description: "Update an existing comment's body text."
 user-invocable: false
-allowed-tools: novadb_cms_update_comment, novadb_cms_get_comment
+allowed-tools: comment_update
 ---
 
 # Update Comment
@@ -15,49 +15,34 @@ allowed-tools: novadb_cms_update_comment, novadb_cms_get_comment
 
 Update an existing comment's body text.
 
-## Tools
+## Tool
 
-1. `novadb_cms_update_comment` — Update the comment
-2. `novadb_cms_get_comment` — Fetch the updated comment (required follow-up)
+`comment_update` — Update the comment (returns the full updated comment)
 
 ## Parameters
 
 ```json
 {
-  "commentId": "abc-123",
-  "body": "<div>Updated comment text</div>",
-  "username": "jdoe"
+  "commentId": 98765,
+  "message": "Updated comment text",
+  "mentions": ["jdoe"]
 }
 ```
 
-- `commentId` — Comment ID (string, required)
-- `body` — New comment body as XHTML (string, required, see body rules below)
-- `username` — (optional) Acting username for audit
+- `commentId` — Comment ID (long, required)
+- `message` — New comment text (string, required; plain text — the MCP renders HTML)
+- `mentions` — (optional) Usernames to @-mention
 
-## XHTML Body Rule
+## Differences from the Old MCP
 
-The comment body **must** be valid XHTML with a `<div>` root element.
-
-- If the user provides plain text, wrap it: `<div>user text here</div>`
-- If the body already starts with `<div>` or `<div `, use it as-is
-- Example: user says "Updated text" → body = `"<div>Updated text</div>"`
-
-## Workflow
-
-1. Ensure the body is valid XHTML (wrap in `<div>` if needed)
-2. Call `novadb_cms_update_comment` with the XHTML body
-3. The response is **204 No Content** (empty) — the update succeeded but returns no data
-4. Call `novadb_cms_get_comment` with the same `commentId` to fetch the updated comment
-5. Return the full updated comment data to the user
+- Old parameter `body` is now `message`. Plain text is accepted — no need to wrap in `<div>`.
+- Update now returns the full `CmsComment` (previously 204 No Content).
 
 ## Response
 
-The update call returns 204 No Content. After fetching, the full comment includes the updated body and all other comment fields.
+Returns the updated `CmsComment` with rendered HTML body and all other comment fields.
 
 ## Common Patterns
 
-### XHTML Body Format
-Comment body must be valid XHTML with a `<div>` root element. Wrap plain text as `<div>user text</div>`.
-
-### API Response (Update Comment)
-Returns 204 No Content. Fetch the comment afterward with `get-comment` to confirm changes.
+### API Response (comment_update)
+Returns the full updated comment — no follow-up fetch required.

@@ -1,7 +1,7 @@
 {
   "name": "novadb-consulting",
-  "description": "Skills and agents for NovaDB Consultant working together with the NovaDB MCP Server",
-  "version": "1.2.0",
+  "description": "Skills and agents for NovaDB Consultant working together with the NovaDB MCP Server (Noxum.Nova.AI.Mcp, C# implementation)",
+  "version": "2.0.0",
   "author": {
     "name": "Noxum"
   }

@@ -1,79 +1,58 @@
 ---
 name: get-job-artifacts
-description: "List, fetch, or download job artifacts."
+description: "List job artifacts. (Single-artifact and ZIP download are unsupported in the current MCP.)"
 user-invocable: false
-allowed-tools: novadb_cms_get_job_artifacts, novadb_cms_get_job_artifact, novadb_cms_get_job_artifacts_zip
+allowed-tools: job_artifacts
 ---
 
 # Get Job Artifacts
 
-List, fetch, or download artifacts produced by a job.
+List artifacts produced by a job.
 
 ## Scope
 
-**This skill ONLY handles:** Listing job artifacts, fetching a specific artifact, or downloading all artifacts as ZIP.
+**This skill ONLY handles:** Listing the artifacts (paths + download URLs) for a completed job.
 
 **For job logs** → use `get-job-logs`
-**For processed object IDs** → use `get-job-object-ids`
+**For processed object IDs** → use `get-job-object-ids` (currently unsupported)
 
-## Tools
+> ⚠️ **Partial support.**
+> - ✅ Listing artifacts is available via the new `job_artifacts` tool.
+> - ❌ Downloading a specific artifact or downloading all artifacts as a ZIP is **not** exposed by the current C# MCP (the old `novadb_cms_get_job_artifact` and `novadb_cms_get_job_artifacts_zip` tools are gone). Only the listing is functional here.
 
-1. `novadb_cms_get_job_artifacts` — List all artifacts for a job
-2. `novadb_cms_get_job_artifact` — Download a specific artifact by path and save to disk
-3. `novadb_cms_get_job_artifacts_zip` — Download all artifacts as a ZIP and save to disk
+## Tool
+
+`job_artifacts` — List all artifacts for a job.
 
 ## Parameters
 
-### List artifacts
 ```json
 {
-  "jobId": "abc-123"
+  "jobId": 12345
 }
 ```
 
-### Get specific artifact
-```json
-{
-  "jobId": "abc-123",
-  "path": "output/report.csv",
-  "targetPath": "report.csv"
-}
-```
-
-- `targetPath` — (Optional) Relative path, e.g. `"report.csv"` or `"artifacts/report.csv"`. Default: `job-<jobId>-artifacts/<path>`. Subdirectories are created automatically. Absolute paths and path traversal (`../`) are rejected.
-
-### Download all as ZIP
-```json
-{
-  "jobId": "abc-123",
-  "targetPath": "all.zip"
-}
-```
-
-- `targetPath` — (Optional) Relative path, e.g. `"all.zip"` or `"artifacts/all.zip"`. Default: `job-<jobId>-artifacts.zip`. Subdirectories are created automatically. Absolute paths and path traversal (`../`) are rejected.
-
-## Workflow
-
-1. Call `novadb_cms_get_job_artifacts` to list available artifacts
-2. To download a specific artifact, call `novadb_cms_get_job_artifact` with the artifact path
-3. To download all artifacts at once, call `novadb_cms_get_job_artifacts_zip`
+- `jobId` — Job ID (int, required). The job must have artifacts enabled and be complete.
 
 ## Response
 
-- **List** — Returns an array of artifact metadata (paths, sizes, etc.)
-- **Single / ZIP** — Returns JSON metadata:
+Returns `JobArtifactList`:
 
 ```json
 {
-  "filePath": "report.csv",
-  "sizeBytes": 12345,
-  "contentType": "application/octet-stream"
+  "artifacts": [
+    { "path": "output/report.csv", "downloadUrl": "https://.../artifacts/report.csv", "sizeBytes": 12345 }
+  ]
 }
 ```
 
+The `downloadUrl` can be opened in a browser or fetched by the user with their own HTTP client — the MCP itself does not download artifacts anymore.
+
+## Fallback for downloads
+
+Until a download tool is added back to the C# MCP, fetch artifacts out-of-band using the `downloadUrl` returned in the listing (curl, browser, etc.). Do not attempt to call the old `novadb_cms_get_job_artifact` / `..._zip` tools — they no longer exist.
+
 ## Common Patterns
 
-- Use `targetPath` to save files with meaningful names
-- Always provide a `targetPath` to control where files are saved
-- Parent directories are created automatically if they don't exist
-- Read the saved file to inspect artifact contents
+### API Response
+Returns a list of artifact metadata. Actual file transfers happen outside Claude.

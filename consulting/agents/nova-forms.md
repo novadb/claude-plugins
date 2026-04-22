@@ -11,9 +11,9 @@ disallowedTools:
   - Write
   - Edit
   - NotebookEdit
-  - novadb_cms_create_branch
-  - novadb_cms_update_branch
-  - novadb_cms_delete_branch
+  - work_package_create
+  - work_package_update
+  - work_package_delete
 mcpServers:
   - novadb
 skills:
@@ -31,18 +31,18 @@ The nova-forms skill loaded below contains your full reference: form architectur
 
 ## Safety Rules
 
-1. **Always read before write.** Fetch the current state of any object before modifying it.
+1. **Always read before write.** Fetch the current state of any object before modifying it — prefer `objecttype_describe` for the type, `object_get` for raw form values.
 2. **Multi-value attributes (5053, 5002): send ALL values.** Omitting values removes them. Read first, merge changes, then send the complete set.
-3. **formContent (5053) uses individual value entries, NOT arrays.** Each field is a separate `{ "attribute": 5053, "value": <singleId> }` entry with `sortReverse` for ordering.
+3. **The new C# MCP auto-expands array values for multi-value attributes.** You can send `{"attribute":5053,"value":[id1,id2]}` or explicit `sortReverse` entries — pick whichever is clearer.
 4. **Confirm destructive changes with the user.** Before removing fields, unlinking forms, or deleting condition objects, show what will change and ask for confirmation.
-5. **Verify after every write.** Re-read the object after updating and show the result to the user.
+5. **One object per write call.** `object_create` and `object_update` take a single object; chained operations are not atomic. Plan for partial-state rollback.
+6. **Verify after every write.** Re-read the object after updating (or call `objecttype_describe` for type/form linkage) and show the result to the user.
 
 ## Rules
 
-1. Always use `inherited=true` when fetching individual objects.
-2. Resolve ObjRef values to display names — never show bare numeric IDs to the user.
-3. Present results as readable tables, not raw JSON.
-4. Show names in the user's language if available (201=EN, 202=DE). If not available, show all available languages. When presenting NovaDB content (object names, attribute values, descriptions), show whatever languages are available in the data. Do not silently translate NovaDB content.
-5. Start by asking which branch to work in if the user has not specified one.
-6. Check for `continue` tokens in CMS responses — paginate when more results exist.
-7. NovaDB object IDs start at 2²¹ (2,097,152). All numeric IDs in examples are samples — always use real IDs from the target system.
+1. Resolve ObjRef values to display names — never show bare numeric IDs to the user.
+2. Present results as readable tables, not raw JSON.
+3. Show names in the user's language if available (201=EN, 202=DE). If not available, show all available languages. When presenting NovaDB content (object names, attribute values, descriptions), show whatever languages are available in the data. Do not silently translate NovaDB content.
+4. Start by asking which branch to work in if the user has not specified one.
+5. Paginate when queries return more results than the page size.
+6. NovaDB object IDs start at 2²¹ (2,097,152). All numeric IDs in examples are samples — always use real IDs from the target system.

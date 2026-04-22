@@ -2,7 +2,7 @@
 name: delete-attribute
 description: "Delete an attribute definition from NovaDB."
 user-invocable: false
-allowed-tools: novadb_cms_delete_objects
+allowed-tools: object_delete
 ---
 
 # Delete Attribute
@@ -19,32 +19,31 @@ Soft-delete an attribute definition.
 
 ## Tool
 
-`novadb_cms_delete_objects`
+`object_delete`
 
 ## Parameters
 
 ```json
 {
-  "branch": "<branchId>",
-  "objectIds": ["12345"],
-  "comment": "No longer needed",
-  "username": "jdoe"
+  "branchId": 2100347,
+  "objectIds": [12345],
+  "comment": "No longer needed"
 }
 ```
 
-- `branch` — Numeric branch ID (int32). Always use the branch the user is currently working on.
-- `objectIds` — Array with the attribute ID (string)
-- `comment` / `username` — (optional) Audit trail
+- `branchId` — Numeric branch ID (int).
+- `objectIds` — Array of attribute IDs to delete (int[]).
+- `comment` — (optional) Audit trail.
 
 ## Response
 
-Returns `{ deletedObjects, transaction }`.
+Returns `DeleteObjectResult` with `deletedObjects` count and `transaction`.
 
 ## Warning
 
-Deleting an attribute does NOT automatically remove it from forms. After deletion, you may need to update affected forms using the set-form-fields skill to remove references to the deleted attribute.
+Deleting an attribute does NOT automatically remove it from forms. After deletion, you may need to update affected forms using the `set-form-fields` skill to remove references to the deleted attribute.
 
 ## Common Patterns
 
 ### API Response (DELETE)
-Returns `{ transaction }` confirming the deletion.
+Returns `{ deletedObjects, transaction }` confirming the deletion.

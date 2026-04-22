@@ -2,7 +2,7 @@
 name: delete-job
 description: "Delete a job by its ID."
 user-invocable: false
-allowed-tools: novadb_cms_delete_job
+allowed-tools: job_delete
 ---
 
 # Delete Job
@@ -17,23 +17,21 @@ Delete a job by its ID.
 
 ## Tools
 
-1. `novadb_cms_delete_job` — Delete the job
+1. `job_delete` — Delete the job
 
 ## Parameters
 
 ```json
 {
-  "jobId": "abc-123",
-  "username": "jdoe"
+  "jobId": 12345
 }
 ```
 
-- `jobId` — Job ID (string, required)
-- `username` — Acting username for audit (optional)
+- `jobId` — Job ID (int, required)
 
 ## Response
 
-Returns confirmation of deletion.
+Returns a short confirmation string (e.g. `"Deleted job 12345"`).
 
 ## Common Patterns
 

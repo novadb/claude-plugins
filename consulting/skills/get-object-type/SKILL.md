@@ -1,98 +1,83 @@
 ---
 name: get-object-type
-description: "Fetch an object type with all resolved attribute definitions."
+description: "Fetch an object type with all resolved attribute definitions (via objecttype_describe)."
 user-invocable: false
-allowed-tools: novadb_cms_get_object, novadb_cms_get_objects
+allowed-tools: objecttype_describe, objecttype_query
 ---
 
 # Get Object Type
 
-Fetch an object type with all resolved attribute definitions. ONLY for reading object types — NOT for creating, updating, or adding attributes.
+Fetch an object type with its attributes, forms, and metadata already resolved. ONLY for reading object types — NOT for creating, updating, or adding attributes.
 
 ## Scope
 
-**This skill ONLY handles:** Fetching an object type and resolving its attribute definitions through the form chain.
+**This skill ONLY handles:** Fetching an object type with the resolved attribute and form information.
 
 **For updating type name/description** → use `update-object-type`
 **For adding new attributes to a type** → use `add-attribute-to-type`
+**Don't have a type ID yet?** → use `objecttype_query` to search by name or API identifier.
 
-**Don't have a type ID?** Search Application Areas (`objectTypeIds: [60]`) by domain name, then read attribute 6001 for linked type IDs.
+## Tool
 
-## Tools Used
+`objecttype_describe` — the C# MCP's purpose-built schema reader.
 
-- `novadb_cms_get_object` — Fetch type and individual forms
-- `novadb_cms_get_objects` — Fetch attribute definitions in bulk
+It returns the full structured type description in a single call: id, apiIdentifier, display names, default create form, detail forms, and every attribute with `{ dataType, multiValue, languageDependent, variantDependent, defaultForm, apiIdentifier }`. No more manually walking Type → 5001 / 5002 → form → 5053 → attributes.
 
-## Workflow (4 Steps)
-
-### Step 1: Fetch the Type
-
-Call `novadb_cms_get_object` with the type ID:
+## Parameters
 
 ```json
 {
-  "branch": "<branch>",
-  "objectId": "<typeId>",
-  "inherited": true
+  "branchId": 2100347,
+  "objectTypeId": <typeId>,
+  "languages": [201, 202]
 }
 ```
 
-### Step 2: Extract Form IDs
+- `branchId` — Numeric branch ID (int).
+- `objectTypeId` — The type to describe (int).
+- `languages` — Languages to load for display names (e.g. `[201, 202]`).
 
-From the type's `values` array, extract:
-
-- **Create form** (attribute 5001): single ObjRef value
-- **Detail forms** (attribute 5002): multi-value ObjRef entries (may have multiple with different `sortReverse`)
-
-Collect all unique form IDs from both attributes.
-
-### Step 3: Fetch Forms and Extract Field IDs
-
-For each form ID, call `novadb_cms_get_object` to fetch the form, then extract field IDs from attribute **5053** (form content).
-
-Form content uses the multi-value ObjRef pattern — look for all values where `attribute === 5053` and collect their `value` fields. Sort by `sortReverse` to preserve ordering.
-
-Deduplicate field IDs across all forms.
-
-### Step 4: Fetch Attribute Definitions
-
-If any field IDs were found, call `novadb_cms_get_objects` with the comma-separated list of attribute definition IDs:
+## Response Shape
 
 ```json
 {
-  "branch": "<branch>",
-  "objectIds": "<id1>,<id2>,<id3>",
-  "inherited": true
+  "id": 2100000,
+  "apiIdentifier": "industry",
+  "name": { "201": "Industry", "202": "Branche" },
+  "description": { "201": "...", "202": "..." },
+  "displayNameAttrId": 1000,
+  "createFormId": 2100101,
+  "detailFormIds": [2100101, 2100102],
+  "attributes": [
+    {
+      "id": 2100050,
+      "apiIdentifier": "name",
+      "name": { "201": "Name", "202": "Name" },
+      "dataType": "String",
+      "multiValue": false,
+      "languageDependent": true,
+      "variantDependent": false,
+      "defaultForm": 2100101
+    }
+  ]
 }
 ```
 
-## Result
+## Fallback (raw attribute reads)
 
-Return both the object type and its resolved attribute definitions to the user.
-
-## Key Attribute IDs
-
-| Purpose | Attribute ID | Pattern |
-|---------|-------------|---------|
-| Create form | 5001 | Single ObjRef on type |
-| Detail forms | 5002 | Multi-value ObjRef on type |
-| Form content (fields) | 5053 | Multi-value ObjRef on form |
+If `objecttype_describe` does not return information you need (rare — it covers the standard schema model), the old chain still works: read attributes 5001 (create form) / 5002 (detail forms) on the type, then attribute 5053 (fields) on each form, then the referenced attribute definitions. Use `object_get` for each hop.
 
 ## Edge Case
 
-If the type has no forms (5001/5002 values missing), return the type with an empty attribute definitions list.
+A type with no forms (neither 5001 nor any 5002) gets an empty `attributes` array. This happens for abstract or system-level types.
 
 ## Common Patterns
 
 ### Type → Form → Attribute Chain
-Attribute definitions are NOT directly linked to object types. Follow: Type → Create Form (5001) / Detail Forms (5002) → Form Fields (5053) → Attribute Definitions.
-
-### ObjRef Resolution
-ObjRef values are numeric IDs. Resolve them to display names using `novadb_cms_get_objects` with `inherited: true`.
+`objecttype_describe` walks this chain for you. Prefer it over manual resolution.
 
 ### BinRef Attributes
+Attributes with data type `BinRef` point to binary objects. To download the file → use `get-file` skill (currently unsupported in the C# MCP — see that skill for details).
 
-Attributes with data type `BinRef` point to binary objects. To download the file → use `get-file` skill.
-
-### API Response (GET)
-Returns a `CmsObject` with `meta` and `values` array.
+### API Response
+Returns an `ObjectTypeDescription` JSON object — no raw `CmsObject` envelope.

@@ -2,7 +2,7 @@
 name: delete-comment
 description: "Delete a comment by its ID."
 user-invocable: false
-allowed-tools: novadb_cms_delete_comment
+allowed-tools: comment_delete
 ---
 
 # Delete Comment
@@ -17,23 +17,21 @@ Delete a comment by its ID.
 
 ## Tool
 
-`novadb_cms_delete_comment`
+`comment_delete`
 
 ## Parameters
 
 ```json
 {
-  "commentId": "abc-123",
-  "username": "jdoe"
+  "commentId": 98765
 }
 ```
 
-- `commentId` — Comment ID (string, required)
-- `username` — (optional) Acting username for audit
+- `commentId` — Comment ID (long, required)
 
 ## Response
 
-Returns the deletion result.
+Returns a short confirmation string (e.g. `"Deleted comment 98765"`).
 
 ## Warning
 

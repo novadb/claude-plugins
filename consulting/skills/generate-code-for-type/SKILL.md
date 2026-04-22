@@ -1,11 +1,14 @@
 ---
 name: generate-code-for-type
-description: "Generate C# code for a single object type."
+description: "[UNSUPPORTED in current MCP] Generate C# code for a single object type."
 user-invocable: false
 allowed-tools: novadb_cms_get_code_generator_type
 ---
 
 # Generate Code for Type
+
+> ⚠️ **UNSUPPORTED IN THE CURRENT C# MCP.**
+> This skill relies on `novadb_cms_get_code_generator_type`, which is not exposed by the current NovaDB MCP (Noxum.Nova.AI.Mcp). Calling it will fail. Until code-generation tools are added back to the C# MCP, generate C# classes outside Claude (e.g. via the CLI/tooling that the old MCP wrapped). The content below is preserved for that future state; do not attempt to invoke.
 
 Generate C# code for a single object type. ONLY for single-type code generation — NOT for multi-type generation or any other operations.
 

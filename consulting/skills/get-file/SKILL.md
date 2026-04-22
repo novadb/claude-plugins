@@ -1,11 +1,14 @@
 ---
 name: get-file
-description: "Download a file from NovaDB by name and save it to disk."
+description: "[UNSUPPORTED in current MCP] Download a file from NovaDB by name and save it to disk."
 user-invocable: false
 allowed-tools: novadb_cms_get_file
 ---
 
 # Get File
+
+> ⚠️ **UNSUPPORTED IN THE CURRENT C# MCP.**
+> This skill relies on `novadb_cms_get_file`, which is not exposed by the current NovaDB MCP (Noxum.Nova.AI.Mcp). Calling it will fail. The content below is preserved for the day file-download support is added back; do not attempt to invoke.
 
 Download a file from NovaDB by its file identifier and save it to disk. Returns metadata (file path, size, content type) instead of file content.
 

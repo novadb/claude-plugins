@@ -1,30 +1,31 @@
 ---
 name: update-branch
-description: "Update properties of an existing branch."
+description: "Update properties of an existing branch (work package)."
 user-invocable: false
-allowed-tools: novadb_cms_update_branch
+allowed-tools: work_package_update
 ---
 
 # Update Branch
 
-Update properties of an existing branch.
+Update properties of an existing branch (work package).
 
 ## Scope
 
-**This skill ONLY handles:** Updating properties (name, parent, type, state, due date, assignee) of an existing branch.
+**This skill ONLY handles:** Updating properties (name, parent, type, state, due date, assignee, description) of an existing branch.
 
 **For creating new branches** → use `create-branch`
 
 ## Tool
 
-`novadb_cms_update_branch`
+`work_package_update`
 
 ## Parameters
 
-- `id` — Branch ID (string)
-- `values` — Array of `CmsValue` objects for the fields to change
+- `branchId` — Branch ID (int, required)
+- `values` — JSON-encoded **string** of a CmsValue array for the fields to change
 - `comment` — (optional) Audit trail comment
-- `username` — (optional) Acting username for audit
+
+Read-then-merge semantics: only include fields you want to change — omitted fields remain untouched. Multi-value attributes, however, are **fully replaced** when specified.
 
 ## Branch Attribute IDs
 
@@ -38,32 +39,29 @@ Update properties of an existing branch.
 | Due date | 4003 | DateTime.Date | `language: 0`, `variant: 0`, ISO format |
 | Assigned to | 4004 | String.UserName | `language: 0`, `variant: 0` |
 
-## Value Construction
-
-Only include the fields you want to change. Omitted fields remain unchanged.
+## Example Call
 
 ```json
 {
-  "id": "2100500",
-  "values": [
-    { "attribute": 1000, "language": 201, "variant": 0, "value": "Updated Name" },
-    { "attribute": 4004, "language": 0, "variant": 0, "value": "newuser" }
-  ],
+  "branchId": 2100500,
+  "values": "[{\"attribute\":1000,\"language\":201,\"variant\":0,\"value\":\"Updated Name\"},{\"attribute\":4004,\"language\":0,\"variant\":0,\"value\":\"newuser\"}]",
   "comment": "Updated branch name and assignee"
 }
 ```
 
+Note: `values` is a JSON-encoded **string** — the new MCP expects it that way.
+
 ## Response
 
-Returns the update result (updatedObjects count, transaction).
+Returns `UpdateWorkPackageResult` with `createdValues` count and `transaction`.
 
 ## Common Patterns
 
 ### CmsValue Format
-Every value entry follows: `{ attribute, language, variant, value }`
+Every value entry in the JSON string follows: `{ attribute, language, variant, value }`
 - `language`: 201=EN, 202=DE, 0=language-independent
 - `variant`: 0=default
 - Only include fields being changed; omitted fields remain unchanged.
 
 ### API Response (Update Branch)
-Returns the updated branch as a `CmsObject` with `meta` and `values`.
+Returns `{ createdValues, transaction }`.

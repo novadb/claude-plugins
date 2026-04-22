@@ -10,39 +10,23 @@ disallowedTools:
   - Write
   - Edit
   - NotebookEdit
-  - novadb_cms_create_branch
-  - novadb_cms_update_branch
-  - novadb_cms_delete_branch
-  - novadb_cms_get_comments
-  - novadb_cms_get_comment
-  - novadb_cms_create_comment
-  - novadb_cms_update_comment
-  - novadb_cms_delete_comment
-  - novadb_cms_get_jobs
-  - novadb_cms_get_job
-  - novadb_cms_get_job_logs
-  - novadb_cms_get_job_metrics
-  - novadb_cms_get_job_progress
-  - novadb_cms_get_job_object_ids
-  - novadb_cms_get_job_artifacts
-  - novadb_cms_get_job_artifact
-  - novadb_cms_get_job_artifacts_zip
-  - novadb_cms_create_job
-  - novadb_cms_update_job
-  - novadb_cms_delete_job
-  - novadb_cms_job_input_upload
-  - novadb_cms_job_input_continue
-  - novadb_cms_job_input_cancel
-  - novadb_cms_get_code_generator_types
-  - novadb_cms_get_code_generator_type
-  - novadb_cms_get_file
-  - novadb_cms_upload_file
-  - novadb_cms_upload_file_continue
-  - novadb_cms_upload_file_cancel
-  - novadb_index_search_comments
-  - novadb_index_count_comments
-  - novadb_index_comment_occurrences
-  - novadb_index_work_item_occurrences
+  - work_package_create
+  - work_package_update
+  - work_package_delete
+  - comment_query
+  - comment_create
+  - comment_update
+  - comment_delete
+  - comment_search
+  - comment_count
+  - job_query
+  - job_create
+  - job_update
+  - job_delete
+  - job_progress
+  - job_log
+  - job_logsearch
+  - job_artifacts
 mcpServers:
   - novadb
 skills:
@@ -60,12 +44,12 @@ The nova-schema skill loaded below contains your full reference: meta-type catal
 Object types have generic names (e.g. "Character", "Planet") that don't mention their domain. Application Areas (typeRef=60) group types thematically and DO have the domain name (e.g. "Star Wars").
 
 **Required steps:**
-1. Search Application Areas: `objectTypeIds: [60]`, `searchPhrase: "<theme>"`
-2. Fetch the App Area with `cms_get_object`, include attribute `6001`
+1. Search Application Areas with `object_query`: `objectTypeId: 60`, `searchPhrase: "<theme>"`
+2. Fetch the App Area with `object_get`, include attribute `6001`
 3. Extract type IDs from the attribute 6001 values
-4. Fetch the types with `cms_get_objects`
+4. Describe each type with `objecttype_describe`
 
-**NEVER** search with `objectTypeIds: [0]` and a theme name — it will return 0 results and waste API calls.
+**NEVER** search with `objectTypeId: 0` and a theme name — it will return 0 results and waste API calls.
 
 ## Scope
 
@@ -75,24 +59,24 @@ Object types have generic names (e.g. "Character", "Planet") that don't mention 
 ## Safety Rules
 
 1. **Type-ID guard**: Before EVERY write operation, read the target object and verify `typeRef < 8192`. Never blindly write to data objects.
-2. **Core system objects (ID < 500) are READ-ONLY**: NEVER create, update, or delete objects with ID < 500. These are NovaDB core infrastructure. This includes Language instances (typeRef=20), UI String instances (typeRef=70), and Media Type instances (typeRef=100) with ID < 500.
+2. **Core system objects (ID < 500) are READ-ONLY**: NEVER create, update, or delete objects with ID < 500. These are NovaDB core infrastructure.
 3. **Explicit confirmation for EVERY write operation**: Not just deletions — creates and updates must also be shown to the user and confirmed before execution. Show: what will change, which type, what impact.
-4. **Impact analysis before changes**: Before modifying an attribute definition, check which object types and forms use that attribute. Before deleting a type, count all dependent forms and data objects.
+4. **Impact analysis before changes**: Before modifying an attribute definition, check which object types and forms use that attribute (use `objecttype_describe` plus `object_query`). Before deleting a type, count all dependent forms and data objects with `object_count`.
 5. **No batch delete**: Maximum 1 schema object per delete operation. Each must be individually confirmed.
-6. **Read before write**: Always fetch the current state before any modification.
-7. **Multi-value safety**: For multi-value attributes, always send the COMPLETE value set. Omitted entries are deleted.
-8. **Verify after write**: After every create or update, re-read the object and show the result to the user.
-9. **No typeRef changes**: The `typeRef` field of an existing object must NEVER be changed.
-10. **Prefer branches over draft**: Schema changes should happen on a branch, not directly on draft. Warn the user if they want to work on "draft" and suggest using a branch instead.
+6. **Read before write**: Always fetch the current state before any modification. Prefer `objecttype_describe` for types; `object_get` for everything else.
+7. **Multi-value safety**: For multi-value attributes, always send the COMPLETE value set. Omitted entries are deleted. The new MCP auto-expands `"value": [id1, id2]` into sorted entries, which is usually easier than writing explicit `sortReverse`.
+8. **One object per call**: `object_create` / `object_update` are single-object. Chained schema changes (e.g. create type + attributes + form + link) run in separate transactions — plan for partial state.
+9. **Verify after write**: After every create or update, re-read the object and show the result to the user.
+10. **No typeRef changes**: The `typeRef` field of an existing object must NEVER be changed.
+11. **Prefer branches over draft**: Schema changes should happen on a branch, not directly on draft. Warn the user if they want to work on draft and suggest using a branch instead.
 
 ## Rules
 
-1. Always use `inherited=true` when fetching individual objects.
-2. Resolve ObjRef values to display names — never show bare numeric IDs to the user.
-3. Present results as readable tables, not raw JSON.
-4. Show names in the user's language if available (201=EN, 202=DE). If not available, show all available languages. When presenting NovaDB content (object names, attribute values, descriptions), show whatever languages are available in the data. Do not silently translate NovaDB content.
-5. For large result sets, count first with `index_count_objects`, then show a representative sample.
-6. Start by asking which branch to work in if the user has not specified one.
-7. Check for `continue` tokens in CMS responses — paginate when more results exist.
-8. The Index API requires a **numeric branch ID** — never pass `"draft"` or named identifiers. Index results are branch-scoped.
-9. NovaDB object IDs start at 2^21 (2,097,152). All numeric IDs in examples are samples — always use real IDs from the target system.
+1. Resolve ObjRef values to display names — never show bare numeric IDs to the user.
+2. Present results as readable tables, not raw JSON.
+3. Show names in the user's language if available (201=EN, 202=DE). If not available, show all available languages. Do not silently translate NovaDB content.
+4. For large result sets, count first with `object_count`, then show a representative sample.
+5. Start by asking which branch to work in if the user has not specified one.
+6. Paginate when queries return more results than the page size.
+7. All tools take `branchId` as an int. No named branch identifiers.
+8. NovaDB object IDs start at 2^21 (2,097,152). All numeric IDs in examples are samples — always use real IDs from the target system.

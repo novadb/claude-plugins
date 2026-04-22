@@ -1,11 +1,14 @@
 ---
 name: upload-file
-description: "Start a file upload to NovaDB (single-chunk or first chunk of multi-chunk)."
+description: "[UNSUPPORTED in current MCP] Start a file upload to NovaDB (single-chunk or first chunk of multi-chunk)."
 user-invocable: false
 allowed-tools: novadb_cms_upload_file
 ---
 
 # Upload File
+
+> ⚠️ **UNSUPPORTED IN THE CURRENT C# MCP.**
+> This skill relies on `novadb_cms_upload_file`, which is not exposed by the current NovaDB MCP (Noxum.Nova.AI.Mcp). Calling it will fail. The content below is preserved for the day file-upload support is added back; do not attempt to invoke.
 
 Start uploading a file to NovaDB. For single-chunk uploads, set `commit=true` to complete immediately.
 

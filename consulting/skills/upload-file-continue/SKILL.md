@@ -1,11 +1,14 @@
 ---
 name: upload-file-continue
-description: "Continue a chunked file upload with additional chunks."
+description: "[UNSUPPORTED in current MCP] Continue a chunked file upload with additional chunks."
 user-invocable: false
 allowed-tools: novadb_cms_upload_file_continue
 ---
 
 # Upload File Continue
+
+> ⚠️ **UNSUPPORTED IN THE CURRENT C# MCP.**
+> This skill relies on `novadb_cms_upload_file_continue`, which is not exposed by the current NovaDB MCP (Noxum.Nova.AI.Mcp). Calling it will fail. The content below is preserved for the day chunked file upload support is added back; do not attempt to invoke.
 
 Continue a chunked file upload that was started with `novadb_cms_upload_file`.
 

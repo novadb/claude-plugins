@@ -2,7 +2,7 @@
 name: add-form-field
 description: "Append a single attribute definition to a form's field list."
 user-invocable: false
-allowed-tools: novadb_cms_get_object, novadb_cms_update_objects
+allowed-tools: object_get, object_update
 ---
 
 # Add Form Field
@@ -18,22 +18,23 @@ Append an attribute definition to the end of a form's field list without replaci
 
 ## Tools Used
 
-- `novadb_cms_get_object` — Read current form to get existing fields
-- `novadb_cms_update_objects` — Update form with the new complete field list
+- `object_get` — Read current form to get existing fields
+- `object_update` — Update the form with the new complete field list
 
 ## Workflow
 
 ### Step 1: Read Current Form
 
-Call `novadb_cms_get_object`:
-
 ```json
 {
-  "branch": "<branch>",
-  "objectId": "<formId>",
-  "inherited": true
+  "branchId": 2100347,
+  "objectIds": [<formId>],
+  "languages": [201, 202],
+  "attributes": []
 }
 ```
+
+Tool: `object_get`.
 
 ### Step 2: Extract Existing Fields
 
@@ -41,51 +42,42 @@ From the form's `values` array, find all entries with `attribute: 5053`. Sort by
 
 ### Step 3: Build Updated Field List
 
-Append the new attribute definition ID to the existing list. Rebuild ALL 5053 entries with correct `sortReverse` ordering (0, 1, 2, ...).
+Append the new attribute definition id to the existing list. The MCP auto-expands arrays for multi-value 5053 — no need to emit individual sortReverse entries.
 
 ### Step 4: Update the Form
 
-Call `novadb_cms_update_objects`:
-
 ```json
 {
-  "branch": "<branch>",
-  "objects": [
-    {
-      "meta": { "id": "<formId>", "typeRef": 50 },
-      "values": [
-        { "attribute": 5053, "language": 0, "variant": 0, "value": "<existingId1>", "sortReverse": 0 },
-        { "attribute": 5053, "language": 0, "variant": 0, "value": "<existingId2>", "sortReverse": 1 },
-        { "attribute": 5053, "language": 0, "variant": 0, "value": "<newAttrDefId>", "sortReverse": 2 }
-      ]
-    }
-  ]
+  "branchId": 2100347,
+  "objectId": <formId>,
+  "values": "[{\"attribute\":5053,\"language\":0,\"variant\":0,\"value\":[<existingId1>,<existingId2>,<newAttrDefId>]}]"
 }
 ```
 
+Tool: `object_update`.
+
 ## Key Details
 
-- `typeRef: 50` = Form
-- The complete field list must be sent — this is a replacement of all 5053 values
-- Each field is a separate CmsValue entry with incrementing `sortReverse`
-- The new field is appended at the end (highest `sortReverse`)
+- The complete field list must be sent — this is a replacement of all 5053 values.
+- Array order inside `value` determines display order.
+- The new field is appended at the end of the array.
 
 ## Response
 
-Returns `{ updatedObjects, createdValues, transaction }`.
+Returns `UpdateObjectResult` with `objectId`, `updatedObjects`, `createdValues`, `transaction`.
 
 ## Common Patterns
 
 ### Multi-Value ObjRef (Form Fields)
-Form content (attribute 5053) uses individual value entries, NOT arrays. Each field is a separate entry with incrementing `sortReverse`:
-- ✓ `{ attr: 5053, value: fieldId1, sortReverse: 0 }, { attr: 5053, value: fieldId2, sortReverse: 1 }`
-- ✗ `{ attr: 5053, value: [fieldId1, fieldId2] }`
+Either form works:
+- ✓ Array: `{"attribute":5053,"value":[fieldId1,fieldId2]}`
+- ✓ `sortReverse` entries: `{"attribute":5053,"value":fieldId1,"sortReverse":0}`
 
 ### Read-Modify-Write Pattern
-1. Read current form to get existing fields from attribute 5053
-2. Extract existing field IDs and their sortReverse values
-3. Append new field with next sortReverse value
-4. Send complete field list (existing + new) back
+1. Read current form via `object_get`
+2. Extract existing field IDs from attribute 5053
+3. Append new field to the array
+4. Send complete field list back via `object_update`
 
-### API Response (PATCH/Update)
-Returns `{ transaction }`. Fetch the form afterward to confirm changes.
+### API Response (Update)
+Returns `{ transaction }`. Fetch the form afterward to confirm.

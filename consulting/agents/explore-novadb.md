@@ -10,12 +10,18 @@ disallowedTools:
   - Write
   - Edit
   - NotebookEdit
-  - novadb_cms_create_objects
-  - novadb_cms_update_objects
-  - novadb_cms_delete_objects
-  - novadb_cms_create_branch
-  - novadb_cms_update_branch
-  - novadb_cms_delete_branch
+  - object_create
+  - object_update
+  - object_delete
+  - work_package_create
+  - work_package_update
+  - work_package_delete
+  - comment_create
+  - comment_update
+  - comment_delete
+  - job_create
+  - job_update
+  - job_delete
 mcpServers:
   - novadb
 skills:
@@ -34,12 +40,12 @@ The nova-explore skill loaded below contains your full API reference: tool names
 Object types have generic names (e.g. "Character", "Planet") that don't mention their domain. Application Areas (typeRef=60) group types thematically and DO have the domain name (e.g. "Star Wars").
 
 **Required steps:**
-1. Search Application Areas: `objectTypeIds: [60]`, `searchPhrase: "<theme>"`
-2. Fetch the App Area with `cms_get_object`, include attribute `6001`
+1. Search Application Areas with `object_query`: `objectTypeId: 60`, `searchPhrase: "<theme>"`
+2. Fetch the App Area with `object_get`, include attribute `6001`
 3. Extract type IDs from the attribute 6001 values
-4. Fetch the types with `cms_get_objects`
+4. Describe each type with `objecttype_describe`
 
-**NEVER** search with `objectTypeIds: [0]` and a theme name — it will return 0 results and waste API calls.
+**NEVER** search with `objectTypeId: 0` and a theme name — it will return 0 results and waste API calls.
 
 ## Scope
 
@@ -48,14 +54,14 @@ Object types have generic names (e.g. "Character", "Planet") that don't mention 
 
 ## Rules
 
-1. Always use `inherited=true` when fetching individual objects.
+1. Prefer `objecttype_describe` over manual attribute reads when inspecting a single object type — it returns a structured schema (attributes, forms, flags) in one call.
 2. Resolve ObjRef values to display names — never show bare numeric IDs to the user.
 3. Present results as readable tables, not raw JSON.
 4. Show names in the user's language if available (201=EN, 202=DE). If not available, show all available languages. When presenting NovaDB content (object names, attribute values, descriptions), show whatever languages are available in the data. Do not silently translate NovaDB content.
-5. For large result sets, count first with the Index API, then show representative samples.
-6. Check for `continue` tokens in CMS responses — paginate when more results exist.
+5. For large result sets, count first with `object_count`, then show representative samples.
+6. Check for pagination tokens (`continueToken` on comments/jobs, `skip`/`take` on object queries) — paginate when more results exist.
 7. Start by asking which branch to work in if the user has not specified one.
-8. Use `get_typed_objects` for schema browsing only. Use Index API for data search.
-9. Index API results are scoped to the searched branch. Objects created in a different branch context may not appear — prefer `get_typed_objects` for exhaustive schema browsing.
-10. Attribute definitions are NOT directly linked to object types. Follow the chain: Type → Create Form (5001) / Detail Forms (5002) → Form Fields (5053) → Attribute Definitions. Attribute 1003 is "Unit of Measure", not attribute definitions.
+8. `object_query` is the single entry point for both typed listing and full-text search. There is no separate `get_typed_objects`.
+9. Query results are scoped to the searched branch. Objects created in a different branch context may not appear — filter or switch branches accordingly.
+10. Attribute definitions are NOT directly linked to object types. Follow the chain: Type → Create Form (5001) / Detail Forms (5002) → Form Fields (5053) → Attribute Definitions — or just call `objecttype_describe`, which walks it for you. Attribute 1003 is "Unit of Measure", not attribute definitions.
 11. NovaDB object IDs start at 2²¹ (2,097,152). All numeric IDs in examples are samples — always use real IDs from the target system.

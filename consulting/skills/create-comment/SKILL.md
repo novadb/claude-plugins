@@ -2,7 +2,7 @@
 name: create-comment
 description: "Create a new comment on an object."
 user-invocable: false
-allowed-tools: novadb_cms_create_comment, novadb_cms_get_comment
+allowed-tools: comment_create
 ---
 
 # Create Comment
@@ -17,51 +17,37 @@ Create a new comment on an object in NovaDB.
 
 > **Note:** NovaDB object IDs start at 2²¹ (2,097,152). All IDs in examples below are samples — always use real IDs from your system.
 
-## Tools
+## Tool
 
-1. `novadb_cms_create_comment` — Create the comment
-2. `novadb_cms_get_comment` — Fetch the created comment (required follow-up)
+`comment_create` — Create the comment (returns the full comment object, no follow-up fetch needed)
 
 ## Parameters
 
 ```json
 {
   "branchId": 2100347,
-  "objectRef": 12345,
-  "body": "<div>My comment text</div>",
-  "username": "jdoe"
+  "objectId": 12345,
+  "message": "Great work!",
+  "mentions": ["jdoe", "asmith"]
 }
 ```
 
-- `branchId` — Branch ID (number, required)
-- `objectRef` — Object ID to comment on (number, required)
-- `body` — Comment body as XHTML (string, required, see body rules below)
-- `username` — (optional) Acting username for audit
+- `branchId` — Branch ID (int, required)
+- `objectId` — Object ID to comment on (int, required)
+- `message` — Comment text (string, required; plain text — the MCP renders it to HTML)
+- `mentions` — (optional) Usernames to @-mention. The MCP prepends them to the message and renders them as clickable user refs.
 
-## XHTML Body Rule
+## Differences from the Old MCP
 
-The comment body **must** be valid XHTML with a `<div>` root element.
-
-- If the user provides plain text, wrap it: `<div>user text here</div>`
-- If the body already starts with `<div>` or `<div `, use it as-is
-- Example: user says "Great work!" → body = `"<div>Great work!</div>"`
-
-## Workflow
-
-1. Ensure the body is valid XHTML (wrap in `<div>` if needed)
-2. Call `novadb_cms_create_comment` with the XHTML body
-3. The response returns only `{ id }` — **not** the full comment
-4. Call `novadb_cms_get_comment` with the returned `id` to fetch the full comment
-5. Return the full comment data to the user
+- Old parameter `body` is now `message`. The old MCP required wrapping plain text in `<div>…</div>`; the new tool takes plain text and renders HTML for you.
+- `mentions` replaces manual `<span>` mention elements.
+- No separate follow-up fetch — the create call returns the full `CmsComment`.
 
 ## Response
 
-The create call returns `{ id }`. After fetching, the full comment includes id, body, branch, object reference, author, timestamps, etc.
+Returns the full `CmsComment` including id, rendered HTML body, branch/object references, author, timestamps.
 
 ## Common Patterns
 
-### XHTML Body Format
-Comment body must be valid XHTML with a `<div>` root element. Wrap plain text as `<div>user text</div>`.
-
-### API Response (Create Comment)
-Returns `{ id }`. Use the ID with `get-comment` to fetch the full comment data.
+### API Response (comment_create)
+Returns the full comment — no follow-up fetch required.
